@@ -18,12 +18,14 @@ services:
       - "8080:8080"
     depends_on:
       - db
+      - erasmumu
     environment:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=school
+      - ERASMUMU_URL=http://erasmumu:8081
 
   erasmumu:
     build: ./erasmumu

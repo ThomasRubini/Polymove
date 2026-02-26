@@ -9,6 +9,26 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type Offer struct {
+	ID          int    `json:"id"`
+	University  string `json:"university"`
+	City        string `json:"city"`
+	Country     string `json:"country"`
+	Description string `json:"description"`
+}
+
+type Internship struct {
+	ID        int    `json:"id"`
+	StudentID int    `json:"student_id"`
+	OfferID   int    `json:"offer_id"`
+	Offer     *Offer `json:"offer,omitempty"`
+}
+
+type InternshipRequest struct {
+	StudentID int `json:"student_id"`
+	OfferID   int `json:"offer_id"`
+}
+
 func createStudent(w http.ResponseWriter, r *http.Request) error {
 	var student Student
 	if err := json.NewDecoder(r.Body).Decode(&student); err != nil {
@@ -112,4 +132,52 @@ func deleteStudent(w http.ResponseWriter, r *http.Request) error {
 
 	NewResponseWriter(w).NoContent()
 	return nil
+}
+
+func createInternship(w http.ResponseWriter, r *http.Request) error {
+	var req InternshipRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return fmt.Errorf("failed to decode request body: %w", err)
+	}
+
+	var student Student
+	query := "SELECT id, name, domain FROM students WHERE id = $1"
+	err := db.QueryRow(query, req.StudentID).Scan(&student.ID, &student.Name, &student.Domain)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("student with id %d not found", req.StudentID)
+		}
+		return fmt.Errorf("failed to get student: %w", err)
+	}
+
+	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
+	resp, err := http.Get(fmt.Sprintf("%s/offers/%d", erasmumuURL, req.OfferID))
+	if err != nil {
+		return fmt.Errorf("failed to fetch offer from erasmumu: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("offer with id %d not found", req.OfferID)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
+	}
+
+	var offer Offer
+	if err := json.NewDecoder(resp.Body).Decode(&offer); err != nil {
+		return fmt.Errorf("failed to decode offer response: %w", err)
+	}
+
+	var internship Internship
+	query = "INSERT INTO internships (student_id, offer_id) VALUES ($1, $2) RETURNING id"
+	if err := db.QueryRow(query, req.StudentID, req.OfferID).Scan(&internship.ID); err != nil {
+		return fmt.Errorf("failed to insert internship: %w", err)
+	}
+
+	internship.StudentID = req.StudentID
+	internship.OfferID = req.OfferID
+	internship.Offer = &offer
+
+	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
 }

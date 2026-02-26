@@ -84,6 +84,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/offers", errorHandler(getOffers)).Methods(http.MethodGet)
 	router.HandleFunc("/offers", errorHandler(createOffer)).Methods(http.MethodPost)
+	router.HandleFunc("/offers/{id}", errorHandler(getOfferByID)).Methods(http.MethodGet)
 
 	log.Println("Server starting on :8081")
 	log.Fatal(http.ListenAndServe(":8081", router))

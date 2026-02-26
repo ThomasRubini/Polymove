@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func getOffers(w http.ResponseWriter, r *http.Request) error {
@@ -49,4 +52,21 @@ func createOffer(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusCreated, offer)
+}
+
+func getOfferByID(w http.ResponseWriter, r *http.Request) error {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var offer Offer
+	query := "SELECT id, university, city, country, description FROM offers WHERE id = $1"
+	err := db.QueryRow(query, id).Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Description)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("offer with id %s not found", id)
+		}
+		return fmt.Errorf("failed to get offer: %w", err)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, offer)
 }

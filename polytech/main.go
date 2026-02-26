@@ -86,6 +86,8 @@ func main() {
 	router.HandleFunc("/student/{id}", errorHandler(updateStudent)).Methods(http.MethodPut)
 	router.HandleFunc("/student/{id}", errorHandler(deleteStudent)).Methods(http.MethodDelete)
 
+	router.HandleFunc("/internship", errorHandler(createInternship)).Methods(http.MethodPost)
+
 	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
@@ -151,6 +153,19 @@ func createTable() {
 	);
 	`
 	_, err = db.Exec(offersQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	internshipsQuery := `
+	CREATE TABLE IF NOT EXISTS internships (
+		id SERIAL PRIMARY KEY,
+		student_id INTEGER NOT NULL REFERENCES students(id),
+		offer_id INTEGER NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+	_, err = db.Exec(internshipsQuery)
 	if err != nil {
 		log.Fatal(err)
 	}
