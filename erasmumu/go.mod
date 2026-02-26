@@ -1,4 +1,4 @@
-module polytech
+module erasmumu
 
 go 1.21
 

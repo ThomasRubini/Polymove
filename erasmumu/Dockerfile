@@ -6,8 +6,8 @@ COPY go.mod ./
 COPY *.go ./
 RUN go get github.com/gorilla/mux github.com/lib/pq
 
-RUN go build -o /student-api
+RUN go build -o /erasmumu
 
-EXPOSE 8080
+EXPOSE 8081
 
-CMD ["/student-api"]
+CMD ["/erasmumu"]

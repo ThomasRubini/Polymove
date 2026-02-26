@@ -13,10 +13,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type Student struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Domain string `json:"domain"`
+type Offer struct {
+	ID          int    `json:"id"`
+	University  string `json:"university"`
+	City        string `json:"city"`
+	Country     string `json:"country"`
+	Description string `json:"description"`
 }
 
 type ErrorResponse struct {
@@ -68,7 +70,7 @@ func errorHandler(fn func(w http.ResponseWriter, r *http.Request) error) http.Ha
 		if err := fn(w, r); err != nil {
 			log.Printf("Error: %v", err)
 			if err2 := rw.EncodeError(http.StatusInternalServerError, err); err2 != nil {
-				log.Printf("Failed to send error to user: %v", err)
+				log.Printf("Failed to send error to user: %v", err2)
 			}
 		}
 	}
@@ -80,14 +82,11 @@ func main() {
 	initDB()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/student", errorHandler(createStudent)).Methods(http.MethodPost)
-	router.HandleFunc("/student/{id}", errorHandler(getStudent)).Methods(http.MethodGet)
-	router.HandleFunc("/student", errorHandler(getStudentsByDomain)).Methods(http.MethodGet)
-	router.HandleFunc("/student/{id}", errorHandler(updateStudent)).Methods(http.MethodPut)
-	router.HandleFunc("/student/{id}", errorHandler(deleteStudent)).Methods(http.MethodDelete)
+	router.HandleFunc("/offers", errorHandler(getOffers)).Methods(http.MethodGet)
+	router.HandleFunc("/offers", errorHandler(createOffer)).Methods(http.MethodPost)
 
-	log.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Println("Server starting on :8081")
+	log.Fatal(http.ListenAndServe(":8081", router))
 }
 
 func initDB() {
@@ -129,19 +128,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func createTable() {
-	studentsQuery := `
-	CREATE TABLE IF NOT EXISTS students (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		domain VARCHAR(255) NOT NULL
-	);
-	`
-	_, err := db.Exec(studentsQuery)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	offersQuery := `
+	query := `
 	CREATE TABLE IF NOT EXISTS offers (
 		id SERIAL PRIMARY KEY,
 		university VARCHAR(255) NOT NULL,
@@ -150,7 +137,7 @@ func createTable() {
 		description TEXT
 	);
 	`
-	_, err = db.Exec(offersQuery)
+	_, err := db.Exec(query)
 	if err != nil {
 		log.Fatal(err)
 	}
