@@ -14,6 +14,7 @@ type Offer struct {
 	University  string `json:"university"`
 	City        string `json:"city"`
 	Country     string `json:"country"`
+	Domain      string `json:"domain"`
 	Description string `json:"description"`
 }
 
@@ -176,6 +177,10 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	var offer Offer
 	if err := json.NewDecoder(resp.Body).Decode(&offer); err != nil {
 		return fmt.Errorf("failed to decode offer response: %w", err)
+	}
+
+	if offer.Domain != student.Domain {
+		return fmt.Errorf("student domain '%s' does not match offer domain '%s'", student.Domain, offer.Domain)
 	}
 
 	var internship Internship

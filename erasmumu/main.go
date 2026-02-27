@@ -18,6 +18,7 @@ type Offer struct {
 	University  string `json:"university"`
 	City        string `json:"city"`
 	Country     string `json:"country"`
+	Domain      string `json:"domain"`
 	Description string `json:"description"`
 }
 
@@ -135,6 +136,7 @@ func createTable() {
 		university VARCHAR(255) NOT NULL,
 		city VARCHAR(255) NOT NULL,
 		country VARCHAR(255) NOT NULL,
+		domain VARCHAR(255) NOT NULL,
 		description TEXT
 	);
 	`

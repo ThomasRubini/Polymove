@@ -16,10 +16,10 @@ func getOffers(w http.ResponseWriter, r *http.Request) error {
 	var args []interface{}
 
 	if city != "" {
-		query = "SELECT id, university, city, country, description FROM offers WHERE city = $1"
+		query = "SELECT id, university, city, country, domain, description FROM offers WHERE city = $1"
 		args = append(args, city)
 	} else {
-		query = "SELECT id, university, city, country, description FROM offers"
+		query = "SELECT id, university, city, country, domain, description FROM offers"
 	}
 
 	rows, err := db.Query(query, args...)
@@ -31,7 +31,7 @@ func getOffers(w http.ResponseWriter, r *http.Request) error {
 	var offers []Offer
 	for rows.Next() {
 		var offer Offer
-		if err := rows.Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Description); err != nil {
+		if err := rows.Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Domain, &offer.Description); err != nil {
 			return fmt.Errorf("failed to scan offer: %w", err)
 		}
 		offers = append(offers, offer)
@@ -46,8 +46,8 @@ func createOffer(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
-	query := "INSERT INTO offers (university, city, country, description) VALUES ($1, $2, $3, $4) RETURNING id"
-	if err := db.QueryRow(query, offer.University, offer.City, offer.Country, offer.Description).Scan(&offer.ID); err != nil {
+	query := "INSERT INTO offers (university, city, country, domain, description) VALUES ($1, $2, $3, $4, $5) RETURNING id"
+	if err := db.QueryRow(query, offer.University, offer.City, offer.Country, offer.Domain, offer.Description).Scan(&offer.ID); err != nil {
 		return fmt.Errorf("failed to insert offer: %w", err)
 	}
 
@@ -59,8 +59,8 @@ func getOfferByID(w http.ResponseWriter, r *http.Request) error {
 	id := vars["id"]
 
 	var offer Offer
-	query := "SELECT id, university, city, country, description FROM offers WHERE id = $1"
-	err := db.QueryRow(query, id).Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Description)
+	query := "SELECT id, university, city, country, domain, description FROM offers WHERE id = $1"
+	err := db.QueryRow(query, id).Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Domain, &offer.Description)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("offer with id %s not found", id)
