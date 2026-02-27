@@ -17,11 +17,20 @@ type Offer struct {
 	Description string `json:"description"`
 }
 
+type CityScore struct {
+	City    string  `json:"city"`
+	Safety  float64 `json:"safety"`
+	Economy float64 `json:"economy"`
+	QoL     float64 `json:"qol"`
+	Culture float64 `json:"culture"`
+}
+
 type Internship struct {
-	ID        int    `json:"id"`
-	StudentID int    `json:"student_id"`
-	OfferID   int    `json:"offer_id"`
-	Offer     *Offer `json:"offer,omitempty"`
+	ID        int        `json:"id"`
+	StudentID int        `json:"student_id"`
+	OfferID   int        `json:"offer_id"`
+	Offer     *Offer     `json:"offer,omitempty"`
+	CityScore *CityScore `json:"city_score,omitempty"`
 }
 
 type InternshipRequest struct {
@@ -178,6 +187,16 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	internship.StudentID = req.StudentID
 	internship.OfferID = req.OfferID
 	internship.Offer = &offer
+
+	mi8URL := getEnv("MI8_URL", "http://mi8:8082")
+	mi8Resp, err := http.Get(fmt.Sprintf("%s/scores?city=%s", mi8URL, offer.City))
+	if err == nil && mi8Resp.StatusCode == http.StatusOK {
+		var scores []CityScore
+		if err := json.NewDecoder(mi8Resp.Body).Decode(&scores); err == nil && len(scores) > 0 {
+			internship.CityScore = &scores[0]
+		}
+		mi8Resp.Body.Close()
+	}
 
 	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
 }

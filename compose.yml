@@ -19,6 +19,7 @@ services:
     depends_on:
       - db
       - erasmumu
+      - mi8
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -26,12 +27,27 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=school
       - ERASMUMU_URL=http://erasmumu:8081
+      - MI8_URL=http://mi8:8082
 
   erasmumu:
     build: ./erasmumu
     container_name: erasmumu_app
     ports:
       - "8081:8081"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=school
+
+  mi8:
+    build: ./mi8
+    container_name: mi8_app
+    ports:
+      - "8082:8082"
     depends_on:
       - db
     environment:
