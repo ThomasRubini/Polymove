@@ -1,13 +1,8 @@
 FROM golang:1.21-alpine
-
 WORKDIR /app
 
-COPY go.mod ./
-COPY *.go ./
-RUN go get github.com/gorilla/mux github.com/lib/pq
-
+COPY * ./
 RUN go build -o /student-api
 
 EXPOSE 8080
-
 CMD ["/student-api"]
