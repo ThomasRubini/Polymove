@@ -88,6 +88,9 @@ func main() {
 
 	router.HandleFunc("/internship", errorHandler(createInternship)).Methods(http.MethodPost)
 
+	router.HandleFunc("/offers", errorHandler(getOffersGateway)).Methods(http.MethodGet)
+	router.HandleFunc("/city-scores", errorHandler(getCityScoresGateway)).Methods(http.MethodGet)
+
 	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

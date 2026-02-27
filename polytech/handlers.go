@@ -205,3 +205,48 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 
 	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
 }
+
+func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
+	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
+	resp, err := http.Get(erasmumuURL + "/offers")
+	if err != nil {
+		return fmt.Errorf("failed to fetch offers from erasmumu: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
+	}
+
+	var offers []Offer
+	if err := json.NewDecoder(resp.Body).Decode(&offers); err != nil {
+		return fmt.Errorf("failed to decode offers response: %w", err)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, offers)
+}
+
+func getCityScoresGateway(w http.ResponseWriter, r *http.Request) error {
+	city := r.URL.Query().Get("city")
+	if city == "" {
+		return fmt.Errorf("city query parameter is required")
+	}
+
+	mi8URL := getEnv("MI8_URL", "http://mi8:8082")
+	resp, err := http.Get(fmt.Sprintf("%s/scores?city=%s", mi8URL, city))
+	if err != nil {
+		return fmt.Errorf("failed to fetch scores from mi8: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("mi8 returned status %d", resp.StatusCode)
+	}
+
+	var scores []CityScore
+	if err := json.NewDecoder(resp.Body).Decode(&scores); err != nil {
+		return fmt.Errorf("failed to decode scores response: %w", err)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, scores)
+}
