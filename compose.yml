@@ -12,6 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   polytech:
+    profiles: [app]
     build: ./polytech
     container_name: polytech_app
     ports:
@@ -30,6 +31,7 @@ services:
       - MI8_URL=http://mi8:8082
 
   erasmumu:
+    profiles: [app]
     build: ./erasmumu
     container_name: erasmumu_app
     ports:
@@ -44,6 +46,7 @@ services:
       - DB_NAME=school
 
   mi8:
+    profiles: [app]
     build: ./mi8
     container_name: mi8_app
     ports:
