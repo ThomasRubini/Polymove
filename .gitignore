@@ -1,0 +1,24 @@
+# Generated protobuf files
+**/proto/*.pb.go
+**/proto/*_grpc.pb.go
+
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp

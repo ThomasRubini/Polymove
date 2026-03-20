@@ -21,11 +21,12 @@ type Offer struct {
 
 // CityScore represents city metrics from MI8 service
 type CityScore struct {
-	City    string  `json:"city"`
-	Safety  float64 `json:"safety"`
-	Economy float64 `json:"economy"`
-	QoL     float64 `json:"qol"`
-	Culture float64 `json:"culture"`
+	City      string  `json:"city"`
+	Safety    float64 `json:"safety"`
+	Economy   float64 `json:"economy"`
+	QoL       float64 `json:"qol"`
+	Culture   float64 `json:"culture"`
+	Relevance float64 `json:"relevance"`
 }
 
 // Internship represents a student's internship placement
@@ -209,15 +210,10 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	internship.OfferID = req.OfferID
 	internship.Offer = &offer
 
-	// Fetch city scores from MI8
-	mi8URL := getEnv("MI8_URL", "http://mi8:8082")
-	mi8Resp, err := http.Get(fmt.Sprintf("%s/scores?city=%s", mi8URL, offer.City))
-	if err == nil && mi8Resp.StatusCode == http.StatusOK {
-		var scores []CityScore
-		if err := json.NewDecoder(mi8Resp.Body).Decode(&scores); err == nil && len(scores) > 0 {
-			internship.CityScore = &scores[0]
-		}
-		mi8Resp.Body.Close()
+	// Fetch city scores from MI8 via gRPC
+	cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
+	if err == nil && cityScore != nil {
+		internship.CityScore = cityScore
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
@@ -244,27 +240,21 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, offers)
 }
 
-// getCityScoresGateway handles GET /city-scores - Gateway endpoint to fetch city scores from MI8
+// getCityScoresGateway handles GET /city-scores - Gateway endpoint to fetch city scores from MI8 via gRPC
 func getCityScoresGateway(w http.ResponseWriter, r *http.Request) error {
 	city := r.URL.Query().Get("city")
 	if city == "" {
 		return fmt.Errorf("city query parameter is required")
 	}
 
-	mi8URL := getEnv("MI8_URL", "http://mi8:8082")
-	resp, err := http.Get(fmt.Sprintf("%s/scores?city=%s", mi8URL, city))
+	cityScore, err := getCityScoresFromMI8(r.Context(), city)
 	if err != nil {
 		return fmt.Errorf("failed to fetch scores from mi8: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("mi8 returned status %d", resp.StatusCode)
-	}
 
 	var scores []CityScore
-	if err := json.NewDecoder(resp.Body).Decode(&scores); err != nil {
-		return fmt.Errorf("failed to decode scores response: %w", err)
+	if cityScore != nil {
+		scores = append(scores, *cityScore)
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusOK, scores)
