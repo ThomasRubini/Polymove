@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+// getScores handles GET /scores - Retrieves city scores, optionally filtered by city
+// Returns Safety, Economy, QoL, and Culture metrics for each city
 func getScores(w http.ResponseWriter, r *http.Request) error {
 	city := r.URL.Query().Get("city")
 
@@ -37,6 +39,7 @@ func getScores(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, scores)
 }
 
+// createNews handles POST /news - Creates a news article for a city
 func createNews(w http.ResponseWriter, r *http.Request) error {
 	var news News
 	if err := json.NewDecoder(r.Body).Decode(&news); err != nil {

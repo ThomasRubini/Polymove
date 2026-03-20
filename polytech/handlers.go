@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Offer represents an Erasmus offer from Erasmumu service
 type Offer struct {
 	ID          int    `json:"id"`
 	University  string `json:"university"`
@@ -18,6 +19,7 @@ type Offer struct {
 	Description string `json:"description"`
 }
 
+// CityScore represents city metrics from MI8 service
 type CityScore struct {
 	City    string  `json:"city"`
 	Safety  float64 `json:"safety"`
@@ -26,6 +28,7 @@ type CityScore struct {
 	Culture float64 `json:"culture"`
 }
 
+// Internship represents a student's internship placement
 type Internship struct {
 	ID        int        `json:"id"`
 	StudentID int        `json:"student_id"`
@@ -34,11 +37,13 @@ type Internship struct {
 	CityScore *CityScore `json:"city_score,omitempty"`
 }
 
+// InternshipRequest is the payload for creating an internship
 type InternshipRequest struct {
 	StudentID int `json:"student_id"`
 	OfferID   int `json:"offer_id"`
 }
 
+// createStudent handles POST /student - Creates a new student
 func createStudent(w http.ResponseWriter, r *http.Request) error {
 	var student Student
 	if err := json.NewDecoder(r.Body).Decode(&student); err != nil {
@@ -53,6 +58,7 @@ func createStudent(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusCreated, student)
 }
 
+// getStudent handles GET /student/{id} - Retrieves a student by ID
 func getStudent(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -70,6 +76,7 @@ func getStudent(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, student)
 }
 
+// getStudentsByDomain handles GET /student - Lists students, optionally filtered by domain
 func getStudentsByDomain(w http.ResponseWriter, r *http.Request) error {
 	domain := r.URL.Query().Get("domain")
 
@@ -101,6 +108,7 @@ func getStudentsByDomain(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, students)
 }
 
+// updateStudent handles PUT /student/{id} - Updates an existing student
 func updateStudent(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -125,6 +133,7 @@ func updateStudent(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, student)
 }
 
+// deleteStudent handles DELETE /student/{id} - Deletes a student
 func deleteStudent(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -144,12 +153,16 @@ func deleteStudent(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// createInternship handles POST /internship - Creates an internship for a student
+// Validates student exists, checks domain match with offer, fetches offer from Erasmumu
+// and city scores from MI8
 func createInternship(w http.ResponseWriter, r *http.Request) error {
 	var req InternshipRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
+	// Validate student exists
 	var student Student
 	query := "SELECT id, name, domain FROM students WHERE id = $1"
 	err := db.QueryRow(query, req.StudentID).Scan(&student.ID, &student.Name, &student.Domain)
@@ -160,6 +173,7 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to get student: %w", err)
 	}
 
+	// Fetch offer from Erasmumu
 	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
 	resp, err := http.Get(fmt.Sprintf("%s/offers/%d", erasmumuURL, req.OfferID))
 	if err != nil {
@@ -179,10 +193,12 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to decode offer response: %w", err)
 	}
 
+	// Check domain match between student and offer
 	if offer.Domain != student.Domain {
 		return fmt.Errorf("student domain '%s' does not match offer domain '%s'", student.Domain, offer.Domain)
 	}
 
+	// Insert internship into database
 	var internship Internship
 	query = "INSERT INTO internships (student_id, offer_id) VALUES ($1, $2) RETURNING id"
 	if err := db.QueryRow(query, req.StudentID, req.OfferID).Scan(&internship.ID); err != nil {
@@ -193,6 +209,7 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	internship.OfferID = req.OfferID
 	internship.Offer = &offer
 
+	// Fetch city scores from MI8
 	mi8URL := getEnv("MI8_URL", "http://mi8:8082")
 	mi8Resp, err := http.Get(fmt.Sprintf("%s/scores?city=%s", mi8URL, offer.City))
 	if err == nil && mi8Resp.StatusCode == http.StatusOK {
@@ -206,6 +223,7 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
 }
 
+// getOffersGateway handles GET /offers - Gateway endpoint to fetch offers from Erasmumu
 func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
 	resp, err := http.Get(erasmumuURL + "/offers")
@@ -226,6 +244,7 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, offers)
 }
 
+// getCityScoresGateway handles GET /city-scores - Gateway endpoint to fetch city scores from MI8
 func getCityScoresGateway(w http.ResponseWriter, r *http.Request) error {
 	city := r.URL.Query().Get("city")
 	if city == "" {

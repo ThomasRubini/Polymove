@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// getOffers handles GET /offers - Lists all offers, optionally filtered by city
 func getOffers(w http.ResponseWriter, r *http.Request) error {
 	city := r.URL.Query().Get("city")
 
@@ -40,6 +41,7 @@ func getOffers(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusOK, offers)
 }
 
+// createOffer handles POST /offers - Creates a new Erasmus offer
 func createOffer(w http.ResponseWriter, r *http.Request) error {
 	var offer Offer
 	if err := json.NewDecoder(r.Body).Decode(&offer); err != nil {
@@ -54,6 +56,7 @@ func createOffer(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusCreated, offer)
 }
 
+// getOfferByID handles GET /offers/{id} - Retrieves a specific offer by ID
 func getOfferByID(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
