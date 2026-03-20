@@ -231,22 +231,44 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to decode offers response: %w", err)
 	}
 
-	offersWithScores := make([]OfferWithScore, 0, len(offers))
+	offersWithScores := make([]*OfferWithScore, 0, len(offers))
+
+	// Create semaphore to limit total concurrent MI8 requests to 5
+	semSize := 5
+	sem := make(chan struct{}, semSize)
+
+	// Process each offer sequentially
 	for _, offer := range offers {
-		offerWithScore := OfferWithScore{Offer: offer}
-		cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
-		if err == nil && cityScore != nil {
-			offerWithScore.Scores = cityScore
-		}
-		news, err := getNewsFromMI8(r.Context(), offer.City)
-		if err == nil {
-			titles := make([]NewsTitle, 0, len(news))
-			for _, n := range news {
-				titles = append(titles, NewsTitle{Title: n.Title})
+		offerWithScore := &OfferWithScore{Offer: offer}
+
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem }()
+
+			cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
+			if err == nil && cityScore != nil {
+				offerWithScore.Scores = cityScore
 			}
-			offerWithScore.LatestNews = titles
-		}
+		}()
+
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem }()
+
+			news, err := getNewsFromMI8(r.Context(), offer.City)
+			if err == nil {
+				titles := make([]NewsTitle, 0, len(news))
+				for _, n := range news {
+					titles = append(titles, NewsTitle{Title: n.Title})
+				}
+				offerWithScore.LatestNews = titles
+			}
+		}()
 		offersWithScores = append(offersWithScores, offerWithScore)
+	}
+	// Wait for all requests to finish
+	for i := 0; i < semSize; i++ {
+		sem <- struct{}{}
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusOK, offersWithScores)
