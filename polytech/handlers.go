@@ -21,7 +21,6 @@ type Offer struct {
 
 // CityScore represents city metrics from MI8 service
 type CityScore struct {
-	City      string  `json:"city"`
 	Safety    float64 `json:"safety"`
 	Economy   float64 `json:"economy"`
 	QoL       float64 `json:"qol"`
@@ -219,7 +218,29 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	return NewResponseWriter(w).JSON(http.StatusCreated, internship)
 }
 
-// getOffersGateway handles GET /offers - Gateway endpoint to fetch offers from Erasmumu
+// OfferWithScore represents an offer with its associated city score
+type OfferWithScore struct {
+	Offer
+	Scores     *CityScore  `json:"scores,omitempty"`
+	LatestNews []NewsTitle `json:"latest_news,omitempty"`
+}
+
+// NewsTitle represents just the title of a news article
+type NewsTitle struct {
+	Title string `json:"title"`
+}
+
+// News represents a news article from MI8
+type News struct {
+	ID        int      `json:"id"`
+	City      string   `json:"city"`
+	Title     string   `json:"title"`
+	Content   string   `json:"content"`
+	CreatedAt string   `json:"created_at"`
+	Tags      []string `json:"tags"`
+}
+
+// getOffersGateway handles GET /offers - Gateway endpoint to fetch offers from Erasmumu with city scores
 func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
 	resp, err := http.Get(erasmumuURL + "/offers")
@@ -237,7 +258,25 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to decode offers response: %w", err)
 	}
 
-	return NewResponseWriter(w).JSON(http.StatusOK, offers)
+	offersWithScores := make([]OfferWithScore, 0, len(offers))
+	for _, offer := range offers {
+		offerWithScore := OfferWithScore{Offer: offer}
+		cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
+		if err == nil && cityScore != nil {
+			offerWithScore.Scores = cityScore
+		}
+		news, err := getNewsFromMI8(r.Context(), offer.City)
+		if err == nil {
+			titles := make([]NewsTitle, 0, len(news))
+			for _, n := range news {
+				titles = append(titles, NewsTitle{Title: n.Title})
+			}
+			offerWithScore.LatestNews = titles
+		}
+		offersWithScores = append(offersWithScores, offerWithScore)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, offersWithScores)
 }
 
 // getCityScoresGateway handles GET /city-scores - Gateway endpoint to fetch city scores from MI8 via gRPC

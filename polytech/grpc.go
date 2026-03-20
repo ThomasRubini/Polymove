@@ -53,11 +53,31 @@ func getCityScoresFromMI8(ctx context.Context, city string) (*CityScore, error) 
 
 	s := resp.Scores[0]
 	return &CityScore{
-		City:      s.City,
 		Safety:    s.Safety,
 		Economy:   s.Economy,
 		QoL:       s.Qol,
 		Culture:   s.Culture,
 		Relevance: s.Relevance,
 	}, nil
+}
+
+func getNewsFromMI8(ctx context.Context, city string) ([]News, error) {
+	client := getMI8Client()
+	resp, err := client.GetNews(ctx, &proto.GetNewsRequest{City: city})
+	if err != nil {
+		return nil, err
+	}
+
+	news := make([]News, 0, len(resp.News))
+	for _, n := range resp.News {
+		news = append(news, News{
+			ID:        int(n.Id),
+			City:      n.City,
+			Title:     n.Title,
+			Content:   n.Content,
+			CreatedAt: n.CreatedAt,
+			Tags:      n.Tags,
+		})
+	}
+	return news, nil
 }
