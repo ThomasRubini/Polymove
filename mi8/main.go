@@ -1,24 +1,24 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 )
 
 type CityScore struct {
-	City    string  `json:"city"`
-	Safety  float64 `json:"safety"`
-	Economy float64 `json:"economy"`
-	QoL     float64 `json:"qol"`
-	Culture float64 `json:"culture"`
+	City      string  `json:"city"`
+	Safety    float64 `json:"safety"`
+	Economy   float64 `json:"economy"`
+	QoL       float64 `json:"qol"`
+	Culture   float64 `json:"culture"`
+	Relevance float64 `json:"relevance"`
 }
 
 type News struct {
@@ -34,7 +34,8 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-var db *sql.DB
+var rdb *redis.Client
+var ctx = context.Background()
 
 type ResponseWriter struct {
 	http.ResponseWriter
@@ -87,45 +88,34 @@ func errorHandler(fn func(w http.ResponseWriter, r *http.Request) error) http.Ha
 func main() {
 	log.SetOutput(os.Stdout)
 
-	initDB()
+	initRedis()
 
 	router := mux.NewRouter()
 	router.HandleFunc("/scores", errorHandler(getScores)).Methods(http.MethodGet)
+	router.HandleFunc("/scores", errorHandler(createScore)).Methods(http.MethodPost)
+	router.HandleFunc("/news", errorHandler(getNews)).Methods(http.MethodGet)
 	router.HandleFunc("/news", errorHandler(createNews)).Methods(http.MethodPost)
 
 	log.Println("Server starting on :8082")
 	log.Fatal(http.ListenAndServe(":8082", router))
 }
 
-func initDB() {
-	host := getEnv("DB_HOST", "db")
-	port := getEnv("DB_PORT", "5432")
-	user := getEnv("DB_USER", "postgres")
-	password := getEnv("DB_PASSWORD", "postgres")
-	dbname := getEnv("DB_NAME", "school")
-
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	var err error
-	db, err = sql.Open("postgres", psqlInfo)
-	if err != nil {
-		log.Fatal(err)
-	}
+func initRedis() {
+	host := getEnv("REDIS_HOST", "redis")
+	rdb = redis.NewClient(&redis.Options{
+		Addr: host + ":6379",
+	})
 
 	for i := 0; i < 10; i++ {
-		err = db.Ping()
+		_, err := rdb.Ping(ctx).Result()
 		if err == nil {
-			break
+			log.Println("Connected to Redis")
+			return
 		}
-		log.Printf("Failed to ping DB, retrying... (%d/10)", i+1)
+		log.Printf("Failed to ping Redis, retrying... (%d/10)", i+1)
 		time.Sleep(2 * time.Second)
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	createTables()
+	log.Fatal("Failed to connect to Redis after 10 attempts")
 }
 
 func getEnv(key, defaultValue string) string {
@@ -133,34 +123,4 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-}
-
-func createTables() {
-	cityScoresQuery := `
-	CREATE TABLE IF NOT EXISTS city_scores (
-		city VARCHAR(255) PRIMARY KEY,
-		safety DECIMAL(5,2) NOT NULL,
-		economy DECIMAL(5,2) NOT NULL,
-		qol DECIMAL(5,2) NOT NULL,
-		culture DECIMAL(5,2) NOT NULL
-	);
-	`
-	_, err := db.Exec(cityScoresQuery)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	newsQuery := `
-	CREATE TABLE IF NOT EXISTS news (
-		id SERIAL PRIMARY KEY,
-		city VARCHAR(255) NOT NULL,
-		title VARCHAR(255) NOT NULL,
-		content TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-	`
-	_, err = db.Exec(newsQuery)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
