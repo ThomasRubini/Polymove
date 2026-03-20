@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -52,13 +51,6 @@ var (
 )
 
 func main() {
-	interval := flag.Int("interval", 60, "Interval in seconds between news generation")
-	flag.Parse()
-
-	if *interval <= 0 {
-		log.Fatal("Interval must be positive")
-	}
-
 	host := getEnv("MI8_HOST", "localhost")
 	port := getEnv("MI8_PORT", "8082")
 	addr := net.JoinHostPort(host, port)
@@ -74,9 +66,9 @@ func main() {
 	client := proto.NewMI8ServiceClient(conn)
 	ctx := context.Background()
 
-	log.Printf("Colporteur started - generating random news every %d seconds", *interval)
+	log.Printf("Colporteur started")
 
-	for {
+	for i := 0; i < 10; i++ {
 		news := generateRandomNews()
 
 		resp, err := client.CreateNews(ctx, &proto.CreateNewsRequest{
@@ -90,8 +82,6 @@ func main() {
 		} else {
 			log.Printf("Created news #%d: %s [%s]", resp.Id, resp.City, strings.Join(resp.Tags, ", "))
 		}
-
-		time.Sleep(time.Duration(*interval) * time.Second)
 	}
 }
 
