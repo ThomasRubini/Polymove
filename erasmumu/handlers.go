@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+
+	"github.com/thomasrubini/polymove/common"
 )
 
 // getOffers handles GET /offers - Lists all offers, optionally filtered by city
@@ -29,9 +31,9 @@ func getOffers(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer rows.Close()
 
-	var offers []Offer
+	var offers []common.Offer
 	for rows.Next() {
-		var offer Offer
+		var offer common.Offer
 		if err := rows.Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Domain, &offer.Description); err != nil {
 			return fmt.Errorf("failed to scan offer: %w", err)
 		}
@@ -43,7 +45,7 @@ func getOffers(w http.ResponseWriter, r *http.Request) error {
 
 // createOffer handles POST /offers - Creates a new Erasmus offer
 func createOffer(w http.ResponseWriter, r *http.Request) error {
-	var offer Offer
+	var offer common.Offer
 	if err := json.NewDecoder(r.Body).Decode(&offer); err != nil {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
@@ -61,7 +63,7 @@ func getOfferByID(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	var offer Offer
+	var offer common.Offer
 	query := "SELECT id, university, city, country, domain, description FROM offers WHERE id = $1"
 	err := db.QueryRow(query, id).Scan(&offer.ID, &offer.University, &offer.City, &offer.Country, &offer.Domain, &offer.Description)
 	if err != nil {

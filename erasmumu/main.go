@@ -13,15 +13,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type Offer struct {
-	ID          int    `json:"id"`
-	University  string `json:"university"`
-	City        string `json:"city"`
-	Country     string `json:"country"`
-	Domain      string `json:"domain"`
-	Description string `json:"description"`
-}
-
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`

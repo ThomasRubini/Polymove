@@ -19,7 +19,9 @@ services:
 
   polytech:
     profiles: [app]
-    build: ./polytech
+    build:
+      context: .
+      dockerfile: polytech.Dockerfile
     container_name: polytech_app
     ports:
       - "8080:8080"
@@ -39,7 +41,9 @@ services:
 
   erasmumu:
     profiles: [app]
-    build: ./erasmumu
+    build:
+      context: .
+      dockerfile: erasmumu.Dockerfile
     container_name: erasmumu_app
     ports:
       - "8081:8081"
@@ -54,7 +58,9 @@ services:
 
   mi8:
     profiles: [app]
-    build: ./mi8
+    build:
+      context: .
+      dockerfile: mi8.Dockerfile
     container_name: mi8_app
     ports:
       - "8082:8082"

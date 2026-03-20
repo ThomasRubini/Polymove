@@ -7,34 +7,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+
+	"github.com/thomasrubini/polymove/common"
 )
-
-// Offer represents an Erasmus offer from Erasmumu service
-type Offer struct {
-	ID          int    `json:"id"`
-	University  string `json:"university"`
-	City        string `json:"city"`
-	Country     string `json:"country"`
-	Domain      string `json:"domain"`
-	Description string `json:"description"`
-}
-
-// CityScore represents city metrics from MI8 service
-type CityScore struct {
-	Safety    float64 `json:"safety"`
-	Economy   float64 `json:"economy"`
-	QoL       float64 `json:"qol"`
-	Culture   float64 `json:"culture"`
-	Relevance float64 `json:"relevance"`
-}
 
 // Internship represents a student's internship placement
 type Internship struct {
-	ID        int        `json:"id"`
-	StudentID int        `json:"student_id"`
-	OfferID   int        `json:"offer_id"`
-	Offer     *Offer     `json:"offer,omitempty"`
-	CityScore *CityScore `json:"city_score,omitempty"`
+	ID        int               `json:"id"`
+	StudentID int               `json:"student_id"`
+	OfferID   int               `json:"offer_id"`
+	Offer     *common.Offer     `json:"offer,omitempty"`
+	CityScore *common.CityScore `json:"city_score,omitempty"`
 }
 
 // InternshipRequest is the payload for creating an internship
@@ -188,7 +171,7 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
 	}
 
-	var offer Offer
+	var offer common.Offer
 	if err := json.NewDecoder(resp.Body).Decode(&offer); err != nil {
 		return fmt.Errorf("failed to decode offer response: %w", err)
 	}
@@ -220,24 +203,14 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 
 // OfferWithScore represents an offer with its associated city score
 type OfferWithScore struct {
-	Offer
-	Scores     *CityScore  `json:"scores,omitempty"`
-	LatestNews []NewsTitle `json:"latest_news,omitempty"`
+	common.Offer
+	Scores     *common.CityScore `json:"scores,omitempty"`
+	LatestNews []NewsTitle       `json:"latest_news,omitempty"`
 }
 
 // NewsTitle represents just the title of a news article
 type NewsTitle struct {
 	Title string `json:"title"`
-}
-
-// News represents a news article from MI8
-type News struct {
-	ID        int      `json:"id"`
-	City      string   `json:"city"`
-	Title     string   `json:"title"`
-	Content   string   `json:"content"`
-	CreatedAt string   `json:"created_at"`
-	Tags      []string `json:"tags"`
 }
 
 // getOffersGateway handles GET /offers - Gateway endpoint to fetch offers from Erasmumu with city scores
@@ -253,7 +226,7 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
 	}
 
-	var offers []Offer
+	var offers []common.Offer
 	if err := json.NewDecoder(resp.Body).Decode(&offers); err != nil {
 		return fmt.Errorf("failed to decode offers response: %w", err)
 	}
@@ -262,7 +235,9 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	for _, offer := range offers {
 		offerWithScore := OfferWithScore{Offer: offer}
 		cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
+		fmt.Printf("A\n")
 		if err == nil && cityScore != nil {
+			fmt.Printf("B\n")
 			offerWithScore.Scores = cityScore
 		}
 		news, err := getNewsFromMI8(r.Context(), offer.City)
@@ -291,7 +266,7 @@ func getCityScoresGateway(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to fetch scores from mi8: %w", err)
 	}
 
-	var scores []CityScore
+	var scores []common.CityScore
 	if cityScore != nil {
 		scores = append(scores, *cityScore)
 	}

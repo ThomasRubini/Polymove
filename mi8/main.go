@@ -1,5 +1,3 @@
-//go:generate protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/mi8.proto
-
 package main
 
 import (
@@ -9,10 +7,9 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/grpc"
-	"mi8/proto"
-
 	"github.com/redis/go-redis/v9"
+	"github.com/thomasrubini/polymove/common/proto"
+	"google.golang.org/grpc"
 )
 
 var rdb *redis.Client

@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thomasrubini/polymove/common/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"mi8/proto"
 )
 
 const baseCityScore = 1000.0

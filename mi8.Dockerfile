@@ -6,18 +6,12 @@ RUN apk add --no-cache protobuf && \
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-COPY *.go ./
-COPY proto/ ./proto/
+COPY common/ common/
+RUN cd common && go mod download && go generate ./...
 
-RUN go mod download && \
-    go generate ./... && \
-    go build -o /mi8
+COPY mi8/ mi8/
+RUN cd mi8 && go build -o /mi8
 
-WORKDIR /app/cmd/colporteur
-COPY cmd/colporteur/*.go ./
-RUN go build -o /colporteur
-
-WORKDIR /app
+WORKDIR /app/mi8
 EXPOSE 8082
 CMD ["/mi8"]

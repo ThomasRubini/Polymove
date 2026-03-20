@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"mi8/proto"
+	"github.com/thomasrubini/polymove/common/proto"
 )
 
 var (

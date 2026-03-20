@@ -6,13 +6,12 @@ RUN apk add --no-cache protobuf && \
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-COPY *.go ./
-COPY proto/ ./proto/
+COPY common/ common/
+RUN cd common && go mod download && go generate ./...
 
-RUN go mod download && \
-    go generate ./... && \
-    go build -o /student-api
+COPY polytech/ polytech/
+RUN cd polytech && go build -o /polytech
 
-EXPOSE 8080
-CMD ["/student-api"]
+WORKDIR /app/polytech
+EXPOSE 8082
+CMD ["/polytech"]

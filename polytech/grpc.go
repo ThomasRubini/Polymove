@@ -9,7 +9,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"polytech/proto"
+	"github.com/thomasrubini/polymove/common"
+	"github.com/thomasrubini/polymove/common/proto"
 )
 
 var (
@@ -40,7 +41,7 @@ func closeMI8Client() {
 	}
 }
 
-func getCityScoresFromMI8(ctx context.Context, city string) (*CityScore, error) {
+func getCityScoresFromMI8(ctx context.Context, city string) (*common.CityScore, error) {
 	client := getMI8Client()
 	resp, err := client.GetScores(ctx, &proto.GetScoresRequest{City: city})
 	if err != nil {
@@ -52,7 +53,7 @@ func getCityScoresFromMI8(ctx context.Context, city string) (*CityScore, error) 
 	}
 
 	s := resp.Scores[0]
-	return &CityScore{
+	return &common.CityScore{
 		Safety:    s.Safety,
 		Economy:   s.Economy,
 		QoL:       s.Qol,
@@ -61,16 +62,16 @@ func getCityScoresFromMI8(ctx context.Context, city string) (*CityScore, error) 
 	}, nil
 }
 
-func getNewsFromMI8(ctx context.Context, city string) ([]News, error) {
+func getNewsFromMI8(ctx context.Context, city string) ([]common.News, error) {
 	client := getMI8Client()
 	resp, err := client.GetNews(ctx, &proto.GetNewsRequest{City: city})
 	if err != nil {
 		return nil, err
 	}
 
-	news := make([]News, 0, len(resp.News))
+	news := make([]common.News, 0, len(resp.News))
 	for _, n := range resp.News {
-		news = append(news, News{
+		news = append(news, common.News{
 			ID:        int(n.Id),
 			City:      n.City,
 			Title:     n.Title,
