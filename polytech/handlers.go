@@ -235,9 +235,7 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 	for _, offer := range offers {
 		offerWithScore := OfferWithScore{Offer: offer}
 		cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
-		fmt.Printf("A\n")
 		if err == nil && cityScore != nil {
-			fmt.Printf("B\n")
 			offerWithScore.Scores = cityScore
 		}
 		news, err := getNewsFromMI8(r.Context(), offer.City)
