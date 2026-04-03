@@ -69,5 +69,18 @@ services:
     environment:
       - REDIS_HOST=redis
 
+  frontend:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: frontend_app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - polytech
+    environment:
+      - POLYTECH_BASE_URL=http://polytech:8080
+
 volumes:
   postgres_data:

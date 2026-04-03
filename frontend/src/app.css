@@ -1,0 +1,260 @@
+:root {
+	--bg: #f7f1e8;
+	--panel: #fffdf8;
+	--ink: #1f2226;
+	--muted: #6a6f77;
+	--line: #ded7c9;
+	--accent: #c04f31;
+	--accent-soft: #f6d5c9;
+	--good: #2f7a4d;
+	--bad: #8f2d2d;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: 'Space Grotesk', sans-serif;
+	color: var(--ink);
+	background:
+		radial-gradient(circle at 20% 10%, #f0d8b8 0%, transparent 40%),
+		radial-gradient(circle at 85% 5%, #f2c6b4 0%, transparent 35%),
+		var(--bg);
+}
+
+a {
+	color: inherit;
+}
+
+.shell {
+	max-width: 1120px;
+	margin: 0 auto;
+	padding: 1.25rem;
+}
+
+.topbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	gap: 1rem;
+	margin-bottom: 1.25rem;
+}
+
+.brand p {
+	margin: 0;
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--muted);
+}
+
+.brand h1 {
+	margin: 0.1rem 0 0;
+	font-family: 'Newsreader', serif;
+	font-size: clamp(1.4rem, 3vw, 2.1rem);
+}
+
+nav {
+	display: flex;
+	gap: 0.65rem;
+	flex-wrap: wrap;
+}
+
+nav a {
+	text-decoration: none;
+	border: 1px solid var(--line);
+	background: var(--panel);
+	padding: 0.45rem 0.8rem;
+	border-radius: 999px;
+	font-size: 0.9rem;
+}
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	padding: 1rem;
+	box-shadow: 0 8px 24px rgba(25, 26, 30, 0.06);
+	margin-bottom: 1rem;
+}
+
+.intro h2,
+.dashboard-intro h2 {
+	margin: 0.2rem 0 0.5rem;
+	font-family: 'Newsreader', serif;
+	font-size: clamp(1.4rem, 2.8vw, 2rem);
+}
+
+.eyebrow {
+	margin: 0;
+	font-size: 0.74rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--muted);
+}
+
+.grid-form {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 0.8rem;
+	align-items: end;
+}
+
+label {
+	display: grid;
+	gap: 0.3rem;
+	font-size: 0.9rem;
+}
+
+input,
+select,
+button {
+	font: inherit;
+}
+
+input,
+select {
+	background: #fff;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 0.52rem 0.62rem;
+}
+
+button {
+	border: 0;
+	border-radius: 12px;
+	padding: 0.58rem 0.9rem;
+	background: var(--accent);
+	color: #fff;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.offers {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+	gap: 1rem;
+}
+
+.offer-card {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	padding: 1rem;
+	display: grid;
+	gap: 0.9rem;
+	box-shadow: 0 8px 24px rgba(25, 26, 30, 0.06);
+}
+
+.offer-head {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.8rem;
+	align-items: start;
+}
+
+.offer-head h3 {
+	margin: 0.2rem 0;
+	font-size: 1.12rem;
+}
+
+.offer-head p {
+	margin: 0;
+	color: var(--muted);
+	font-size: 0.95rem;
+}
+
+.meta-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(120px, 1fr));
+	gap: 0.45rem;
+	font-size: 0.92rem;
+}
+
+.scores h4,
+.news h4 {
+	margin: 0 0 0.5rem;
+	font-size: 0.95rem;
+}
+
+.score-row {
+	margin-bottom: 0.45rem;
+}
+
+.score-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.86rem;
+	margin-bottom: 0.22rem;
+}
+
+.track {
+	height: 9px;
+	background: #ece8dd;
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.fill {
+	height: 100%;
+	background: linear-gradient(90deg, #ed9d68, var(--accent));
+	transition: width 260ms ease;
+}
+
+.news ul {
+	padding-left: 1rem;
+	margin: 0;
+	display: grid;
+	gap: 0.4rem;
+	font-size: 0.9rem;
+}
+
+.apply-form {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.apply-form input {
+	max-width: 120px;
+}
+
+.message {
+	font-weight: 500;
+}
+
+.message.success {
+	border-color: #acd8ba;
+	background: #ecf8f0;
+	color: var(--good);
+}
+
+.message.error {
+	border-color: #ebbbbb;
+	background: #fff0f0;
+	color: var(--bad);
+}
+
+.dashboard-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1rem;
+}
+
+@media (max-width: 760px) {
+	.topbar {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.meta-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.apply-form {
+		justify-content: flex-start;
+	}
+}
