@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	cities = []string{"Paris", "London", "Berlin", "Madrid", "Rome", "Amsterdam", "Vienna", "Prague", "Stockholm", "Brussels"}
+	cities = []string{"Paris", "London", "Berlin", "Madrid", "Rome", "Amsterdam", "Lyon"}
 	titles = []struct {
 		template string
 		tags     []string

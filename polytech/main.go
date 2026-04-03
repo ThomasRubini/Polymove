@@ -87,6 +87,7 @@ func main() {
 	router.HandleFunc("/student", errorHandler(getStudentsByDomain)).Methods(http.MethodGet)
 	router.HandleFunc("/student/{id}", errorHandler(updateStudent)).Methods(http.MethodPut)
 	router.HandleFunc("/student/{id}", errorHandler(deleteStudent)).Methods(http.MethodDelete)
+	router.HandleFunc("/students/{id}/recommended-offers", errorHandler(getRecommendedOffers)).Methods(http.MethodGet)
 
 	router.HandleFunc("/internship", errorHandler(createInternship)).Methods(http.MethodPost)
 

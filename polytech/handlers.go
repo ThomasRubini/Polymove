@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -337,4 +338,121 @@ func getCityScoresGateway(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusOK, scores)
+}
+
+// getSortScore extracts the selected sortable score from an offer.
+func getSortScore(offer *OfferWithScore, sortBy string) float64 {
+	if offer == nil || offer.Scores == nil {
+		return 0
+	}
+
+	switch sortBy {
+	case "safety":
+		return offer.Scores.Safety
+	case "economy":
+		return offer.Scores.Economy
+	case "qol":
+		fallthrough
+	case "quality_of_life":
+		return offer.Scores.QoL
+	case "culture":
+		return offer.Scores.Culture
+	default:
+		return 0
+	}
+}
+
+// getRecommendedOffers handles GET /students/{id}/recommended-offers.
+func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
+	studentID := mux.Vars(r)["id"]
+
+	var student Student
+	query := "SELECT id, name, domain FROM students WHERE id = $1"
+	err := db.QueryRow(query, studentID).Scan(&student.ID, &student.Name, &student.Domain)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("student with id %s not found", studentID)
+		}
+		return fmt.Errorf("failed to get student: %w", err)
+	}
+
+	limit := 5
+	if limitValue := r.URL.Query().Get("limit"); limitValue != "" {
+		if parsedLimit, parseErr := strconv.Atoi(limitValue); parseErr == nil {
+			limit = parsedLimit
+		}
+	}
+	sortBy := r.URL.Query().Get("sort_by")
+
+	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
+	resp, err := http.Get(erasmumuURL + "/offers")
+	if err != nil {
+		return fmt.Errorf("failed to fetch offers from erasmumu: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
+	}
+
+	var offers []common.Offer
+	if err := json.NewDecoder(resp.Body).Decode(&offers); err != nil {
+		return fmt.Errorf("failed to decode offers response: %w", err)
+	}
+
+	matchingOffers := make([]common.Offer, 0, len(offers))
+	for _, offer := range offers {
+		if offer.Domain == student.Domain {
+			matchingOffers = append(matchingOffers, offer)
+		}
+	}
+
+	recommendedOffers := make([]*OfferWithScore, 0, len(matchingOffers))
+	semSize := 5
+	sem := make(chan struct{}, semSize)
+
+	for _, offer := range matchingOffers {
+		recommendedOffer := &OfferWithScore{Offer: offer}
+		city := offer.City
+
+		sem <- struct{}{}
+		go func(targetOffer *OfferWithScore, city string) {
+			defer func() { <-sem }()
+
+			cityScore, scoreErr := getCityScoresFromMI8(r.Context(), city)
+			if scoreErr == nil && cityScore != nil {
+				targetOffer.Scores = cityScore
+			}
+		}(recommendedOffer, city)
+
+		sem <- struct{}{}
+		go func(targetOffer *OfferWithScore, city string) {
+			defer func() { <-sem }()
+
+			news, newsErr := getNewsFromMI8(r.Context(), city)
+			if newsErr == nil {
+				titles := make([]NewsTitle, 0, len(news))
+				for _, n := range news {
+					titles = append(titles, NewsTitle{Title: n.Title})
+				}
+				targetOffer.LatestNews = titles
+			}
+		}(recommendedOffer, city)
+
+		recommendedOffers = append(recommendedOffers, recommendedOffer)
+	}
+
+	for i := 0; i < semSize; i++ {
+		sem <- struct{}{}
+	}
+
+	sort.Slice(recommendedOffers, func(i, j int) bool {
+		return getSortScore(recommendedOffers[i], sortBy) > getSortScore(recommendedOffers[j], sortBy)
+	})
+
+	if limit >= 0 && len(recommendedOffers) > limit {
+		recommendedOffers = recommendedOffers[:limit]
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, recommendedOffers)
 }
