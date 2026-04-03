@@ -44,34 +44,10 @@ func main() {
 
 // initRabbitMQ connects to RabbitMQ with retries and returns a ready channel.
 func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
-	host := getEnv("RABBITMQ_HOST", "localhost")
-	port := getEnv("RABBITMQ_PORT", "5672")
-	addr := "amqp://guest:guest@" + host + ":" + port + "/"
-
-	var conn *amqp.Connection
-	var err error
-
-	for i := 0; i < 10; i++ {
-		conn, err = amqp.Dial(addr)
-		if err == nil {
-			ch, chErr := conn.Channel()
-			if chErr != nil {
-				conn.Close()
-				log.Printf("Failed to open RabbitMQ channel, retrying... (%d/10)", i+1)
-				time.Sleep(2 * time.Second)
-				continue
-			}
-
-			log.Println("Connected to RabbitMQ")
-			return conn, ch
-		}
-
-		log.Printf("Failed to connect to RabbitMQ, retrying... (%d/10)", i+1)
-		time.Sleep(2 * time.Second)
-	}
-
-	log.Fatal("Failed to connect to RabbitMQ after 10 attempts")
-	return nil, nil
+	return common.InitRabbitMQ(
+		getEnv("RABBITMQ_HOST", "localhost"),
+		getEnv("RABBITMQ_PORT", "5672"),
+	)
 }
 
 // consumeNewsEvents subscribes to mi8.news and stores each event in Redis.
