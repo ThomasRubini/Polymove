@@ -9,6 +9,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
+	"github.com/thomasrubini/polymove/common"
 	"github.com/thomasrubini/polymove/common/proto"
 	"google.golang.org/grpc"
 )
@@ -74,7 +75,7 @@ func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 
 // consumeNewsEvents subscribes to mi8.news and stores each event in Redis.
 func consumeNewsEvents(ch *amqp.Channel) {
-	const topic = "mi8.news"
+	topic := common.RoutingKeyMI8News
 
 	queue, err := ch.QueueDeclare(
 		topic,

@@ -80,6 +80,9 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	initDB()
+	initRabbitMQ()
+	defer rmqChannel.Close()
+	defer rmqConn.Close()
 
 	router := mux.NewRouter()
 	router.HandleFunc("/student", errorHandler(createStudent)).Methods(http.MethodPost)

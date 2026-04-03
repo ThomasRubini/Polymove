@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/thomasrubini/polymove/common v0.0.0
 	google.golang.org/grpc v1.60.0
 )

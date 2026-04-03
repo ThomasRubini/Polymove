@@ -44,6 +44,10 @@ func createStudent(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to insert student: %w", err)
 	}
 
+	if err := publishStudentRegisteredEvent(student); err != nil {
+		return fmt.Errorf("failed to publish student.registered event: %w", err)
+	}
+
 	return NewResponseWriter(w).JSON(http.StatusCreated, student)
 }
 

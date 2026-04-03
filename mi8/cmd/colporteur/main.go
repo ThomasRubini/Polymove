@@ -10,6 +10,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/thomasrubini/polymove/common"
 )
 
 var (
@@ -72,7 +73,7 @@ func main() {
 
 		err = ch.Publish(
 			"amq.topic",
-			"mi8.news",
+			common.RoutingKeyMI8News,
 			false,
 			false,
 			amqp.Publishing{

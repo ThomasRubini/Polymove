@@ -36,6 +36,7 @@ services:
       - db
       - erasmumu
       - mi8
+      - rabbitmq
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -45,6 +46,7 @@ services:
       - ERASMUMU_URL=http://erasmumu:8081
       - MI8_GRPC_HOST=mi8
       - MI8_GRPC_PORT=8082
+      - RABBITMQ_HOST=rabbitmq
 
   erasmumu:
     profiles: [app]
@@ -76,6 +78,19 @@ services:
       - rabbitmq
     environment:
       - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+
+  laposte:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: laposte.Dockerfile
+    container_name: laposte_app
+    ports:
+      - "8083:8083"
+    depends_on:
+      - rabbitmq
+    environment:
       - RABBITMQ_HOST=rabbitmq
 
   frontend:
