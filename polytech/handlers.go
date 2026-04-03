@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/gorilla/mux"
 
@@ -213,10 +215,41 @@ type NewsTitle struct {
 	Title string `json:"title"`
 }
 
+// buildOffersURL forwards supported filters to Erasmumu.
+func buildOffersURL(baseURL, city string) (string, error) {
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid erasmumu url: %w", err)
+	}
+
+	parsedURL.Path = "/offers"
+	query := parsedURL.Query()
+	if city != "" {
+		query.Set("city", city)
+	}
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String(), nil
+}
+
 // getOffersGateway handles GET /offers - Gateway endpoint to fetch offers from Erasmumu with city scores
 func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
+	limit := 10
+	if limitValue := r.URL.Query().Get("limit"); limitValue != "" {
+		if parsedLimit, err := strconv.Atoi(limitValue); err == nil {
+			limit = parsedLimit
+		}
+	}
+	city := r.URL.Query().Get("city")
+	domain := r.URL.Query().Get("domain")
+
 	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
-	resp, err := http.Get(erasmumuURL + "/offers")
+	offersURL, err := buildOffersURL(erasmumuURL, city)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Get(offersURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch offers from erasmumu: %w", err)
 	}
@@ -231,39 +264,51 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to decode offers response: %w", err)
 	}
 
-	offersWithScores := make([]*OfferWithScore, 0, len(offers))
+	filteredOffers := make([]common.Offer, 0, len(offers))
+	for _, offer := range offers {
+		if domain != "" && offer.Domain != domain {
+			continue
+		}
+		filteredOffers = append(filteredOffers, offer)
+		if len(filteredOffers) == limit {
+			break
+		}
+	}
+
+	offersWithScores := make([]*OfferWithScore, 0, len(filteredOffers))
 
 	// Create semaphore to limit total concurrent MI8 requests to 5
 	semSize := 5
 	sem := make(chan struct{}, semSize)
 
 	// Process each offer sequentially
-	for _, offer := range offers {
+	for _, offer := range filteredOffers {
 		offerWithScore := &OfferWithScore{Offer: offer}
+		city := offer.City
 
 		sem <- struct{}{}
-		go func() {
+		go func(targetOffer *OfferWithScore, city string) {
 			defer func() { <-sem }()
 
-			cityScore, err := getCityScoresFromMI8(r.Context(), offer.City)
+			cityScore, err := getCityScoresFromMI8(r.Context(), city)
 			if err == nil && cityScore != nil {
-				offerWithScore.Scores = cityScore
+				targetOffer.Scores = cityScore
 			}
-		}()
+		}(offerWithScore, city)
 
 		sem <- struct{}{}
-		go func() {
+		go func(targetOffer *OfferWithScore, city string) {
 			defer func() { <-sem }()
 
-			news, err := getNewsFromMI8(r.Context(), offer.City)
+			news, err := getNewsFromMI8(r.Context(), city)
 			if err == nil {
 				titles := make([]NewsTitle, 0, len(news))
 				for _, n := range news {
 					titles = append(titles, NewsTitle{Title: n.Title})
 				}
-				offerWithScore.LatestNews = titles
+				targetOffer.LatestNews = titles
 			}
-		}()
+		}(offerWithScore, city)
 		offersWithScores = append(offersWithScores, offerWithScore)
 	}
 	// Wait for all requests to finish
