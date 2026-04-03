@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/mux"
 
@@ -217,6 +219,71 @@ type NewsTitle struct {
 	Title string `json:"title"`
 }
 
+type cityIntelligence struct {
+	Scores     *common.CityScore
+	LatestNews []NewsTitle
+}
+
+// fetchCityIntelligence loads MI8 data once per unique city using bounded parallel calls.
+func fetchCityIntelligence(ctx context.Context, offers []common.Offer) map[string]cityIntelligence {
+	uniqueCities := make(map[string]struct{})
+	for _, offer := range offers {
+		if offer.City == "" {
+			continue
+		}
+		uniqueCities[offer.City] = struct{}{}
+	}
+
+	cityData := make(map[string]cityIntelligence, len(uniqueCities))
+	if len(uniqueCities) == 0 {
+		return cityData
+	}
+
+	var (
+		mu  sync.Mutex
+		wg  sync.WaitGroup
+		sem = make(chan struct{}, 5)
+	)
+
+	for city := range uniqueCities {
+		city := city
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			score, scoreErr := getCityScoresFromMI8(ctx, city)
+			<-sem
+			if scoreErr != nil {
+				log.Printf("mi8 city scores unavailable for city=%s: %v", city, scoreErr)
+			}
+
+			sem <- struct{}{}
+			news, newsErr := getNewsFromMI8(ctx, city)
+			<-sem
+			if newsErr != nil {
+				log.Printf("mi8 news unavailable for city=%s: %v", city, newsErr)
+			}
+
+			intel := cityIntelligence{Scores: score}
+			if newsErr == nil {
+				titles := make([]NewsTitle, 0, len(news))
+				for _, n := range news {
+					titles = append(titles, NewsTitle{Title: n.Title})
+				}
+				intel.LatestNews = titles
+			}
+
+			mu.Lock()
+			cityData[city] = intel
+			mu.Unlock()
+		}()
+	}
+
+	wg.Wait()
+	return cityData
+}
+
 // buildOffersURL forwards supported filters to Erasmumu.
 func buildOffersURL(baseURL, city string) (string, error) {
 	parsedURL, err := url.Parse(baseURL)
@@ -279,49 +346,15 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	cityData := fetchCityIntelligence(r.Context(), filteredOffers)
 	offersWithScores := make([]*OfferWithScore, 0, len(filteredOffers))
-
-	// Create semaphore to limit total concurrent MI8 requests to 5
-	semSize := 5
-	sem := make(chan struct{}, semSize)
-
-	// Process each offer sequentially
 	for _, offer := range filteredOffers {
 		offerWithScore := &OfferWithScore{Offer: offer}
-		city := offer.City
-
-		sem <- struct{}{}
-		go func(targetOffer *OfferWithScore, city string) {
-			defer func() { <-sem }()
-
-			cityScore, err := getCityScoresFromMI8(r.Context(), city)
-			if err == nil && cityScore != nil {
-				targetOffer.Scores = cityScore
-			} else if err != nil {
-				log.Printf("mi8 city scores unavailable for city=%s: %v", city, err)
-			}
-		}(offerWithScore, city)
-
-		sem <- struct{}{}
-		go func(targetOffer *OfferWithScore, city string) {
-			defer func() { <-sem }()
-
-			news, err := getNewsFromMI8(r.Context(), city)
-			if err == nil {
-				titles := make([]NewsTitle, 0, len(news))
-				for _, n := range news {
-					titles = append(titles, NewsTitle{Title: n.Title})
-				}
-				targetOffer.LatestNews = titles
-			} else {
-				log.Printf("mi8 news unavailable for city=%s: %v", city, err)
-			}
-		}(offerWithScore, city)
+		if intel, exists := cityData[offer.City]; exists {
+			offerWithScore.Scores = intel.Scores
+			offerWithScore.LatestNews = intel.LatestNews
+		}
 		offersWithScores = append(offersWithScores, offerWithScore)
-	}
-	// Wait for all requests to finish
-	for i := 0; i < semSize; i++ {
-		sem <- struct{}{}
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusOK, offersWithScores)
@@ -416,47 +449,15 @@ func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	cityData := fetchCityIntelligence(r.Context(), matchingOffers)
 	recommendedOffers := make([]*OfferWithScore, 0, len(matchingOffers))
-	semSize := 5
-	sem := make(chan struct{}, semSize)
-
 	for _, offer := range matchingOffers {
 		recommendedOffer := &OfferWithScore{Offer: offer}
-		city := offer.City
-
-		sem <- struct{}{}
-		go func(targetOffer *OfferWithScore, city string) {
-			defer func() { <-sem }()
-
-			cityScore, scoreErr := getCityScoresFromMI8(r.Context(), city)
-			if scoreErr == nil && cityScore != nil {
-				targetOffer.Scores = cityScore
-			} else if scoreErr != nil {
-				log.Printf("mi8 city scores unavailable for city=%s: %v", city, scoreErr)
-			}
-		}(recommendedOffer, city)
-
-		sem <- struct{}{}
-		go func(targetOffer *OfferWithScore, city string) {
-			defer func() { <-sem }()
-
-			news, newsErr := getNewsFromMI8(r.Context(), city)
-			if newsErr == nil {
-				titles := make([]NewsTitle, 0, len(news))
-				for _, n := range news {
-					titles = append(titles, NewsTitle{Title: n.Title})
-				}
-				targetOffer.LatestNews = titles
-			} else {
-				log.Printf("mi8 news unavailable for city=%s: %v", city, newsErr)
-			}
-		}(recommendedOffer, city)
-
+		if intel, exists := cityData[offer.City]; exists {
+			recommendedOffer.Scores = intel.Scores
+			recommendedOffer.LatestNews = intel.LatestNews
+		}
 		recommendedOffers = append(recommendedOffers, recommendedOffer)
-	}
-
-	for i := 0; i < semSize; i++ {
-		sem <- struct{}{}
 	}
 
 	sort.Slice(recommendedOffers, func(i, j int) bool {
