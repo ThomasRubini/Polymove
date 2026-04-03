@@ -6,9 +6,7 @@ option go_package = "mi8/proto";
 
 service MI8Service {
   rpc GetScores(GetScoresRequest) returns (GetScoresResponse);
-  rpc CreateScore(CreateScoreRequest) returns (CityScore);
   rpc GetNews(GetNewsRequest) returns (GetNewsResponse);
-  rpc CreateNews(CreateNewsRequest) returns (News);
 }
 
 message CityScore {
@@ -37,21 +35,10 @@ message GetScoresResponse {
   repeated CityScore scores = 1;
 }
 
-message CreateScoreRequest {
-  CityScore score = 1;
-}
-
 message GetNewsRequest {
   string city = 1;
 }
 
 message GetNewsResponse {
   repeated News news = 1;
-}
-
-message CreateNewsRequest {
-  string city = 1;
-  string title = 2;
-  string content = 3;
-  repeated string tags = 4;
 }

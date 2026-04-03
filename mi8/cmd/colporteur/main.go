@@ -1,19 +1,15 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
-	"net"
 	"os"
 	"strings"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
-	"github.com/thomasrubini/polymove/common/proto"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var (
@@ -51,38 +47,70 @@ var (
 )
 
 func main() {
-	host := getEnv("MI8_HOST", "localhost")
-	port := getEnv("MI8_PORT", "8082")
-	addr := net.JoinHostPort(host, port)
+	host := getEnv("RABBITMQ_HOST", "localhost")
+	port := getEnv("RABBITMQ_PORT", "5672")
+	addr := fmt.Sprintf("amqp://guest:guest@%s:%s/", host, port)
 
-	log.Printf("Connecting to MI8 at %s", addr)
+	log.Printf("Connecting to RabbitMQ at %s", addr)
 
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, ch, err := connectRabbitMQ(addr)
 	if err != nil {
-		log.Fatalf("Failed to connect to MI8: %v", err)
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
+	defer ch.Close()
 	defer conn.Close()
-
-	client := proto.NewMI8ServiceClient(conn)
-	ctx := context.Background()
 
 	log.Printf("Colporteur started")
 
 	for i := 0; i < 10; i++ {
 		news := generateRandomNews()
-
-		resp, err := client.CreateNews(ctx, &proto.CreateNewsRequest{
-			City:    news.City,
-			Title:   news.Title,
-			Content: news.Content,
-			Tags:    news.Tags,
-		})
+		body, err := json.Marshal(news)
 		if err != nil {
-			log.Printf("Failed to create news: %v", err)
-		} else {
-			log.Printf("Created news #%d: %s [%s]", resp.Id, resp.City, strings.Join(resp.Tags, ", "))
+			log.Printf("Failed to marshal news payload: %v", err)
+			continue
 		}
+
+		err = ch.Publish(
+			"amq.topic",
+			"mi8.news",
+			false,
+			false,
+			amqp.Publishing{
+				ContentType:  "application/json",
+				DeliveryMode: amqp.Persistent,
+				Body:         body,
+			},
+		)
+		if err != nil {
+			log.Printf("Failed to publish news event: %v", err)
+		} else {
+			log.Printf("Published news event: %s [%s]", news.City, strings.Join(news.Tags, ", "))
+		}
+
+		time.Sleep(300 * time.Millisecond)
 	}
+}
+
+func connectRabbitMQ(addr string) (*amqp.Connection, *amqp.Channel, error) {
+	var conn *amqp.Connection
+	var err error
+
+	for i := 0; i < 10; i++ {
+		conn, err = amqp.Dial(addr)
+		if err == nil {
+			ch, chErr := conn.Channel()
+			if chErr != nil {
+				conn.Close()
+				return nil, nil, chErr
+			}
+			return conn, ch, nil
+		}
+
+		log.Printf("Failed to connect to RabbitMQ, retrying... (%d/10)", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
+	return nil, nil, err
 }
 
 func getEnv(key, defaultValue string) string {
@@ -93,10 +121,10 @@ func getEnv(key, defaultValue string) string {
 }
 
 type News struct {
-	City    string
-	Title   string
-	Content string
-	Tags    []string
+	City    string   `json:"city"`
+	Title   string   `json:"title"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
 }
 
 func generateRandomNews() News {

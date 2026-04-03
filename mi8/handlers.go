@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,6 +27,13 @@ var tagEffects = map[string]map[string]float64{
 
 type server struct {
 	proto.UnimplementedMI8ServiceServer
+}
+
+type NewsEvent struct {
+	City    string   `json:"city"`
+	Title   string   `json:"title"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
 }
 
 func (s *server) GetScores(ctx context.Context, req *proto.GetScoresRequest) (*proto.GetScoresResponse, error) {
@@ -80,23 +88,6 @@ func getScoreFromRedis(ctx context.Context, city string) (*proto.CityScore, erro
 		Culture:   culture,
 		Relevance: relevance,
 	}, nil
-}
-
-func (s *server) CreateScore(ctx context.Context, req *proto.CreateScoreRequest) (*proto.CityScore, error) {
-	score := req.Score
-
-	err := rdb.HSet(ctx, "city_score:"+score.City, map[string]interface{}{
-		"city":    score.City,
-		"safety":  score.Safety,
-		"economy": score.Economy,
-		"qol":     score.Qol,
-		"culture": score.Culture,
-	}).Err()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to save score: %v", err)
-	}
-
-	return score, nil
 }
 
 func (s *server) GetNews(ctx context.Context, req *proto.GetNewsRequest) (*proto.GetNewsResponse, error) {
@@ -160,43 +151,57 @@ func getNewsFromRedis(ctx context.Context, key string) (*proto.News, error) {
 	}, nil
 }
 
-func (s *server) CreateNews(ctx context.Context, req *proto.CreateNewsRequest) (*proto.News, error) {
+func processNewsEvent(ctx context.Context, payload []byte) error {
+	var event NewsEvent
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal news event: %w", err)
+	}
+
+	if event.City == "" || event.Title == "" {
+		return fmt.Errorf("invalid news event: city and title are required")
+	}
+
+	_, err := createNewsRecord(ctx, event.City, event.Title, event.Content, event.Tags)
+	return err
+}
+
+func createNewsRecord(ctx context.Context, city, title, content string, tags []string) (*proto.News, error) {
 	newsID, err := rdb.Incr(ctx, "news_count").Result()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to generate news ID: %v", err)
+		return nil, fmt.Errorf("failed to generate news ID: %w", err)
 	}
 
 	createdAt := time.Now().UTC()
 
-	tagsStr := strings.Join(req.Tags, ",")
+	tagsStr := strings.Join(tags, ",")
 
 	err = rdb.HSet(ctx, fmt.Sprintf("news:%d", newsID), map[string]interface{}{
 		"id":         newsID,
-		"city":       req.City,
-		"title":      req.Title,
-		"content":    req.Content,
+		"city":       city,
+		"title":      title,
+		"content":    content,
 		"created_at": createdAt.Format(time.RFC3339),
 		"tags":       tagsStr,
 	}).Err()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to save news: %v", err)
+		return nil, fmt.Errorf("failed to save news: %w", err)
 	}
 
-	err = rdb.SAdd(ctx, "city:news:"+req.City, newsID).Err()
+	err = rdb.SAdd(ctx, "city:news:"+city, newsID).Err()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to add news to city set: %v", err)
+		return nil, fmt.Errorf("failed to add news to city set: %w", err)
 	}
 
-	applyTagEffects(ctx, req.City, req.Tags)
-	updateCityRelevance(ctx, req.City)
+	applyTagEffects(ctx, city, tags)
+	updateCityRelevance(ctx, city)
 
 	return &proto.News{
 		Id:        int32(newsID),
-		City:      req.City,
-		Title:     req.Title,
-		Content:   req.Content,
+		City:      city,
+		Title:     title,
+		Content:   content,
 		CreatedAt: createdAt.Format(time.RFC3339),
-		Tags:      req.Tags,
+		Tags:      tags,
 	}, nil
 }
 
