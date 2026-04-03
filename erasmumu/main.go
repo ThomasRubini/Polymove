@@ -124,11 +124,14 @@ func createTable() {
 	query := `
 	CREATE TABLE IF NOT EXISTS offers (
 		id SERIAL PRIMARY KEY,
-		university VARCHAR(255) NOT NULL,
+		title VARCHAR(255) NOT NULL,
+		link TEXT NOT NULL,
 		city VARCHAR(255) NOT NULL,
-		country VARCHAR(255) NOT NULL,
 		domain VARCHAR(255) NOT NULL,
-		description TEXT
+		salary INTEGER NOT NULL,
+		start_date DATE NOT NULL,
+		end_date DATE NOT NULL,
+		available BOOLEAN NOT NULL DEFAULT true
 	);
 	`
 	_, err := db.Exec(query)

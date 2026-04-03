@@ -148,20 +148,6 @@ func createTable() {
 		log.Fatal(err)
 	}
 
-	offersQuery := `
-	CREATE TABLE IF NOT EXISTS offers (
-		id SERIAL PRIMARY KEY,
-		university VARCHAR(255) NOT NULL,
-		city VARCHAR(255) NOT NULL,
-		country VARCHAR(255) NOT NULL,
-		description TEXT
-	);
-	`
-	_, err = db.Exec(offersQuery)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	internshipsQuery := `
 	CREATE TABLE IF NOT EXISTS internships (
 		id SERIAL PRIMARY KEY,

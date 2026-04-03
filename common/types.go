@@ -11,12 +11,15 @@ type CityScore struct {
 }
 
 type Offer struct {
-	ID          int    `json:"id"`
-	University  string `json:"university"`
-	City        string `json:"city"`
-	Country     string `json:"country"`
-	Domain      string `json:"domain"`
-	Description string `json:"description"`
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	Link      string `json:"link"`
+	City      string `json:"city"`
+	Domain    string `json:"domain"`
+	Salary    int    `json:"salary"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	Available bool   `json:"available"`
 }
 
 type News struct {
