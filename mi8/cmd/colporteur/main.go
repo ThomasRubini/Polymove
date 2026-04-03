@@ -91,6 +91,7 @@ func main() {
 	}
 }
 
+// connectRabbitMQ opens a RabbitMQ connection and channel with retry logic.
 func connectRabbitMQ(addr string) (*amqp.Connection, *amqp.Channel, error) {
 	var conn *amqp.Connection
 	var err error

@@ -40,6 +40,7 @@ func main() {
 	}
 }
 
+// initRabbitMQ connects to RabbitMQ with retries and returns a ready channel.
 func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	host := getEnv("RABBITMQ_HOST", "localhost")
 	port := getEnv("RABBITMQ_PORT", "5672")
@@ -71,6 +72,7 @@ func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	return nil, nil
 }
 
+// consumeNewsEvents subscribes to mi8.news and stores each event in Redis.
 func consumeNewsEvents(ch *amqp.Channel) {
 	const topic = "mi8.news"
 

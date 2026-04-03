@@ -151,6 +151,7 @@ func getNewsFromRedis(ctx context.Context, key string) (*proto.News, error) {
 	}, nil
 }
 
+// processNewsEvent validates and converts a RabbitMQ payload into a stored news entry.
 func processNewsEvent(ctx context.Context, payload []byte) error {
 	var event NewsEvent
 	if err := json.Unmarshal(payload, &event); err != nil {
@@ -165,6 +166,7 @@ func processNewsEvent(ctx context.Context, payload []byte) error {
 	return err
 }
 
+// createNewsRecord persists one news item and updates city scores and relevance.
 func createNewsRecord(ctx context.Context, city, title, content string, tags []string) (*proto.News, error) {
 	newsID, err := rdb.Incr(ctx, "news_count").Result()
 	if err != nil {
