@@ -64,6 +64,7 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=school
+      - RABBITMQ_HOST=rabbitmq
 
   mi8:
     profiles: [app]
