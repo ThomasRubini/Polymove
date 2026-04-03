@@ -1,5 +1,5 @@
 <script>
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const sortOptions = [
 		{ value: '', label: 'No sorting' },
@@ -42,12 +42,64 @@
 	<section class="panel message error">{data.error}</section>
 {/if}
 
+{#if form?.markReadResult}
+	<section class="panel message {form.markReadResult.ok ? 'success' : 'error'}">
+		{form.markReadResult.message}
+	</section>
+{/if}
+
 {#if data.student}
 	<section class="panel">
 		<h3>Student Profile</h3>
 		<p><strong>ID:</strong> {data.student.id}</p>
 		<p><strong>Name:</strong> {data.student.name}</p>
 		<p><strong>Domain:</strong> {data.student.domain}</p>
+		<p><a href={`/settings?student_id=${data.student.id}`}>Manage La Poste preferences</a></p>
+	</section>
+{/if}
+
+{#if data.student}
+	<section class="panel">
+		<h3>Notification Center</h3>
+		{#if data.notificationsError}
+			<p class="message error">{data.notificationsError}</p>
+		{:else if data.notifications.length === 0}
+			<p>No notifications available.</p>
+		{:else}
+			<div class="notification-list">
+				{#each data.notifications as notification}
+					<article class="notification-item {notification.read ? '' : 'unread'}">
+						<div>
+							<p class="eyebrow">{notification.type}</p>
+							<p>{notification.message}</p>
+							<p class="helper-text">Offer #{notification.offer_id} • {notification.created_at}</p>
+						</div>
+						{#if !notification.read}
+							<form method="POST" action="?/markRead" class="action-row">
+								<input type="hidden" name="notification_id" value={notification.id} />
+								<button type="submit" class="btn-small">Mark as read</button>
+							</form>
+						{/if}
+					</article>
+				{/each}
+			</div>
+		{/if}
+	</section>
+{/if}
+
+{#if data.student}
+	<section class="panel">
+		<h3>La Poste Preferences</h3>
+		{#if data.preferencesError}
+			<p class="message error">{data.preferencesError}</p>
+		{:else if data.preferences}
+			<p><strong>Domain:</strong> {data.preferences.domain}</p>
+			<p><strong>Channel:</strong> {data.preferences.channel}</p>
+			<p><strong>Contact:</strong> {data.preferences.contact || 'Not set'}</p>
+			<p><strong>Enabled:</strong> {data.preferences.enabled ? 'Yes' : 'No'}</p>
+		{:else}
+			<p>No preference found for this student yet.</p>
+		{/if}
 	</section>
 {/if}
 

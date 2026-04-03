@@ -106,6 +106,7 @@ services:
       - polytech
     environment:
       - POLYTECH_BASE_URL=http://polytech:8080
+      - LAPOSTE_BASE_URL=http://laposte:8083
 
 volumes:
   postgres_data:

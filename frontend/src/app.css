@@ -244,6 +244,62 @@ button {
 	gap: 1rem;
 }
 
+.notification-list {
+	display: grid;
+	gap: 0.7rem;
+}
+
+.notification-item {
+	padding: 0.8rem;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	border-left: 3px solid transparent;
+	display: grid;
+	gap: 0.5rem;
+}
+
+.notification-item.unread {
+	background: var(--accent-soft);
+	border-left-color: var(--accent);
+}
+
+.helper-text {
+	font-size: 0.82rem;
+	color: var(--muted);
+}
+
+.settings-form {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 0.8rem;
+	align-items: end;
+}
+
+.action-row {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.btn-small {
+	padding: 0.4rem 0.75rem;
+	font-size: 0.88rem;
+	border-radius: 10px;
+	border: 0;
+	cursor: pointer;
+	font-weight: 600;
+	background: var(--accent);
+	color: #fff;
+}
+
+.btn-ghost {
+	background: transparent;
+	border: 1px solid var(--line);
+	color: var(--ink);
+}
+
 @media (max-width: 760px) {
 	.topbar {
 		flex-direction: column;
@@ -256,5 +312,9 @@ button {
 
 	.apply-form {
 		justify-content: flex-start;
+	}
+
+	.settings-form {
+		grid-template-columns: 1fr;
 	}
 }

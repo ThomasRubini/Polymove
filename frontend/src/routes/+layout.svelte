@@ -25,6 +25,7 @@
 		<nav>
 			<a href="/">Offers Explorer</a>
 			<a href="/dashboard">Student Dashboard</a>
+			<a href="/settings">La Poste Settings</a>
 		</nav>
 	</header>
 
