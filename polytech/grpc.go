@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -15,9 +17,10 @@ import (
 
 var (
 	mi8Client   proto.MI8ServiceClient
-	mi8Conn     *grpc.ClientConn
 	mi8ConnOnce sync.Once
 )
+
+const mi8RPCTimeout = 1500 * time.Millisecond
 
 func getMI8Client() proto.MI8ServiceClient {
 	mi8ConnOnce.Do(func() {
@@ -29,23 +32,19 @@ func getMI8Client() proto.MI8ServiceClient {
 		if err != nil {
 			log.Fatalf("Failed to connect to MI8 gRPC server: %v", err)
 		}
-		mi8Conn = conn
 		mi8Client = proto.NewMI8ServiceClient(conn)
 	})
 	return mi8Client
 }
 
-func closeMI8Client() {
-	if mi8Conn != nil {
-		mi8Conn.Close()
-	}
-}
-
 func getCityScoresFromMI8(ctx context.Context, city string) (*common.CityScore, error) {
 	client := getMI8Client()
-	resp, err := client.GetScores(ctx, &proto.GetScoresRequest{City: city})
+	rpcCtx, cancel := context.WithTimeout(ctx, mi8RPCTimeout)
+	defer cancel()
+
+	resp, err := client.GetScores(rpcCtx, &proto.GetScoresRequest{City: city})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mi8 GetScores failed for city %q: %w", city, err)
 	}
 
 	if len(resp.Scores) == 0 {
@@ -64,9 +63,12 @@ func getCityScoresFromMI8(ctx context.Context, city string) (*common.CityScore, 
 
 func getNewsFromMI8(ctx context.Context, city string) ([]common.News, error) {
 	client := getMI8Client()
-	resp, err := client.GetNews(ctx, &proto.GetNewsRequest{City: city})
+	rpcCtx, cancel := context.WithTimeout(ctx, mi8RPCTimeout)
+	defer cancel()
+
+	resp, err := client.GetNews(rpcCtx, &proto.GetNewsRequest{City: city})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mi8 GetNews failed for city %q: %w", city, err)
 	}
 
 	news := make([]common.News, 0, len(resp.News))

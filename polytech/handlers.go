@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -80,7 +81,7 @@ func getStudentsByDomain(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("failed to query students: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var students []Student
 	for rows.Next() {
@@ -165,7 +166,7 @@ func createInternship(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch offer from erasmumu: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("offer with id %d not found", req.OfferID)
@@ -252,12 +253,14 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 
 	resp, err := http.Get(offersURL)
 	if err != nil {
-		return fmt.Errorf("failed to fetch offers from erasmumu: %w", err)
+		log.Printf("erasmumu unavailable for /offers: %v", err)
+		return NewResponseWriter(w).JSON(http.StatusOK, []*OfferWithScore{})
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
+		log.Printf("erasmumu returned non-OK status for /offers: %d", resp.StatusCode)
+		return NewResponseWriter(w).JSON(http.StatusOK, []*OfferWithScore{})
 	}
 
 	var offers []common.Offer
@@ -294,6 +297,8 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 			cityScore, err := getCityScoresFromMI8(r.Context(), city)
 			if err == nil && cityScore != nil {
 				targetOffer.Scores = cityScore
+			} else if err != nil {
+				log.Printf("mi8 city scores unavailable for city=%s: %v", city, err)
 			}
 		}(offerWithScore, city)
 
@@ -308,6 +313,8 @@ func getOffersGateway(w http.ResponseWriter, r *http.Request) error {
 					titles = append(titles, NewsTitle{Title: n.Title})
 				}
 				targetOffer.LatestNews = titles
+			} else {
+				log.Printf("mi8 news unavailable for city=%s: %v", city, err)
 			}
 		}(offerWithScore, city)
 		offersWithScores = append(offersWithScores, offerWithScore)
@@ -387,12 +394,14 @@ func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
 	erasmumuURL := getEnv("ERASMUMU_URL", "http://erasmumu:8081")
 	resp, err := http.Get(erasmumuURL + "/offers")
 	if err != nil {
-		return fmt.Errorf("failed to fetch offers from erasmumu: %w", err)
+		log.Printf("erasmumu unavailable for /students/%s/recommended-offers: %v", studentID, err)
+		return NewResponseWriter(w).JSON(http.StatusOK, []*OfferWithScore{})
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("erasmumu returned status %d", resp.StatusCode)
+		log.Printf("erasmumu returned non-OK status for /students/%s/recommended-offers: %d", studentID, resp.StatusCode)
+		return NewResponseWriter(w).JSON(http.StatusOK, []*OfferWithScore{})
 	}
 
 	var offers []common.Offer
@@ -422,6 +431,8 @@ func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
 			cityScore, scoreErr := getCityScoresFromMI8(r.Context(), city)
 			if scoreErr == nil && cityScore != nil {
 				targetOffer.Scores = cityScore
+			} else if scoreErr != nil {
+				log.Printf("mi8 city scores unavailable for city=%s: %v", city, scoreErr)
 			}
 		}(recommendedOffer, city)
 
@@ -436,6 +447,8 @@ func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
 					titles = append(titles, NewsTitle{Title: n.Title})
 				}
 				targetOffer.LatestNews = titles
+			} else {
+				log.Printf("mi8 news unavailable for city=%s: %v", city, newsErr)
 			}
 		}(recommendedOffer, city)
 
