@@ -74,7 +74,6 @@
 						<h3>{offer.title}</h3>
 						<p>{offer.city}</p>
 					</div>
-					<a href={offer.link} target="_blank" rel="noreferrer">Source</a>
 				</div>
 
 				<div class="meta-grid">
