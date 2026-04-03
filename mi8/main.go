@@ -26,6 +26,7 @@ func main() {
 	defer rmqConn.Close()
 
 	go consumeNewsEvents(rmqChannel)
+	go consumeOfferCreatedEvents(rmqChannel)
 
 	lis, err := net.Listen("tcp", ":8082")
 	if err != nil {
@@ -121,6 +122,46 @@ func consumeNewsEvents(ch *amqp.Channel) {
 	for msg := range deliveries {
 		if err := processNewsEvent(ctx, msg.Body); err != nil {
 			log.Printf("Failed to process news event: %v", err)
+			if nackErr := msg.Nack(false, true); nackErr != nil {
+				log.Printf("Failed to nack message: %v", nackErr)
+			}
+			continue
+		}
+
+		if ackErr := msg.Ack(false); ackErr != nil {
+			log.Printf("Failed to ack message: %v", ackErr)
+		}
+	}
+}
+
+// consumeOfferCreatedEvents subscribes to offer.created and updates city offer statistics.
+func consumeOfferCreatedEvents(ch *amqp.Channel) {
+	queueName := "mi8.offer.created"
+	routingKey := common.RoutingKeyOfferCreated
+
+	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
+	if err != nil {
+		log.Printf("Failed to declare queue: %v", err)
+		return
+	}
+
+	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	if err != nil {
+		log.Printf("Failed to bind queue: %v", err)
+		return
+	}
+
+	deliveries, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		log.Printf("Failed to register consumer: %v", err)
+		return
+	}
+
+	log.Printf("Subscribed to RabbitMQ topic %s", routingKey)
+
+	for msg := range deliveries {
+		if err := processOfferCreatedEvent(ctx, msg.Body); err != nil {
+			log.Printf("Failed to process offer.created event: %v", err)
 			if nackErr := msg.Nack(false, true); nackErr != nil {
 				log.Printf("Failed to nack message: %v", nackErr)
 			}

@@ -83,6 +83,7 @@ func main() {
 	initRabbitMQ()
 	defer rmqChannel.Close()
 	defer rmqConn.Close()
+	go consumeOfferCreatedEvents(rmqChannel)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/student", errorHandler(createStudent)).Methods(http.MethodPost)
@@ -91,6 +92,8 @@ func main() {
 	router.HandleFunc("/student/{id}", errorHandler(updateStudent)).Methods(http.MethodPut)
 	router.HandleFunc("/student/{id}", errorHandler(deleteStudent)).Methods(http.MethodDelete)
 	router.HandleFunc("/students/{id}/recommended-offers", errorHandler(getRecommendedOffers)).Methods(http.MethodGet)
+	router.HandleFunc("/students/{id}/notifications", errorHandler(getStudentNotifications)).Methods(http.MethodGet)
+	router.HandleFunc("/notifications/{id}/read", errorHandler(markNotificationAsRead)).Methods(http.MethodPut)
 
 	router.HandleFunc("/internship", errorHandler(createInternship)).Methods(http.MethodPost)
 
@@ -161,6 +164,23 @@ func createTable() {
 	);
 	`
 	_, err = db.Exec(internshipsQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	notificationsQuery := `
+	CREATE TABLE IF NOT EXISTS notifications (
+		id SERIAL PRIMARY KEY,
+		student_id INTEGER NOT NULL REFERENCES students(id),
+		type VARCHAR(64) NOT NULL,
+		offer_id INTEGER NOT NULL,
+		message TEXT NOT NULL,
+		read BOOLEAN NOT NULL DEFAULT false,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(student_id, offer_id, type)
+	);
+	`
+	_, err = db.Exec(notificationsQuery)
 	if err != nil {
 		log.Fatal(err)
 	}

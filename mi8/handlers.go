@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thomasrubini/polymove/common"
 	"github.com/thomasrubini/polymove/common/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -124,6 +125,25 @@ func (s *server) GetNews(ctx context.Context, req *proto.GetNewsRequest) (*proto
 	return &proto.GetNewsResponse{News: newsList}, nil
 }
 
+// GetCityStats returns offer counters and domain breakdown for a specific city.
+func (s *server) GetCityStats(ctx context.Context, req *proto.GetCityStatsRequest) (*proto.CityStats, error) {
+	if req.City == "" {
+		return nil, status.Error(codes.InvalidArgument, "city is required")
+	}
+
+	stats, err := getCityStatsFromRedis(ctx, req.City)
+	if err == nil {
+		return stats, nil
+	}
+
+	return &proto.CityStats{
+		City:           req.City,
+		TotalOffers:    0,
+		OffersByDomain: map[string]int32{},
+		LastOfferDate:  "",
+	}, nil
+}
+
 func getNewsFromRedis(ctx context.Context, key string) (*proto.News, error) {
 	data, err := rdb.HGetAll(ctx, key).Result()
 	if err != nil {
@@ -166,6 +186,24 @@ func processNewsEvent(ctx context.Context, payload []byte) error {
 	return err
 }
 
+// processOfferCreatedEvent validates and stores city offer counters from a RabbitMQ payload.
+func processOfferCreatedEvent(ctx context.Context, payload []byte) error {
+	var event common.OfferCreatedEvent
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal offer event: %w", err)
+	}
+
+	if event.City == "" || event.Domain == "" || event.OfferID <= 0 {
+		return fmt.Errorf("invalid offer.created event")
+	}
+
+	if err := updateCityOfferStats(ctx, event); err != nil {
+		return fmt.Errorf("failed to update city stats: %w", err)
+	}
+
+	return nil
+}
+
 // createNewsRecord persists one news item and updates city scores and relevance.
 func createNewsRecord(ctx context.Context, city, title, content string, tags []string) (*proto.News, error) {
 	newsID, err := rdb.Incr(ctx, "news_count").Result()
@@ -204,6 +242,57 @@ func createNewsRecord(ctx context.Context, city, title, content string, tags []s
 		Content:   content,
 		CreatedAt: createdAt.Format(time.RFC3339),
 		Tags:      tags,
+	}, nil
+}
+
+// updateCityOfferStats increments per-city and per-domain offer counters.
+func updateCityOfferStats(ctx context.Context, event common.OfferCreatedEvent) error {
+	cityStatsKey := "city_offer_stats:" + event.City
+	cityDomainStatsKey := "city_offer_stats_domain:" + event.City
+
+	pipe := rdb.TxPipeline()
+	pipe.HIncrBy(ctx, cityStatsKey, "total_offers", 1)
+	pipe.HSet(ctx, cityStatsKey, "city", event.City)
+	pipe.HSet(ctx, cityStatsKey, "last_offer_date", event.CreatedAt)
+	pipe.HIncrBy(ctx, cityDomainStatsKey, event.Domain, 1)
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getCityStatsFromRedis loads city offer stats and domain counters from Redis.
+func getCityStatsFromRedis(ctx context.Context, city string) (*proto.CityStats, error) {
+	stats, err := rdb.HGetAll(ctx, "city_offer_stats:"+city).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(stats) == 0 {
+		return nil, fmt.Errorf("city stats not found")
+	}
+
+	domainCounts, err := rdb.HGetAll(ctx, "city_offer_stats_domain:"+city).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	totalOffers, _ := strconv.Atoi(stats["total_offers"])
+	offersByDomain := make(map[string]int32, len(domainCounts))
+	for domain, countRaw := range domainCounts {
+		count, parseErr := strconv.Atoi(countRaw)
+		if parseErr != nil {
+			continue
+		}
+		offersByDomain[domain] = int32(count)
+	}
+
+	return &proto.CityStats{
+		City:           city,
+		TotalOffers:    int32(totalOffers),
+		OffersByDomain: offersByDomain,
+		LastOfferDate:  stats["last_offer_date"],
 	}, nil
 }
 

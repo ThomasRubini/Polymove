@@ -55,6 +55,10 @@ func createOffer(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to insert offer: %w", err)
 	}
 
+	if err := publishOfferCreatedEvent(offer); err != nil {
+		return fmt.Errorf("failed to publish offer.created event: %w", err)
+	}
+
 	return NewResponseWriter(w).JSON(http.StatusCreated, offer)
 }
 

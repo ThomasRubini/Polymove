@@ -32,6 +32,17 @@ type InternshipRequest struct {
 	OfferID   int `json:"offer_id"`
 }
 
+// Notification represents a student notification generated from offer events.
+type Notification struct {
+	ID        int    `json:"id"`
+	StudentID int    `json:"student_id"`
+	Type      string `json:"type"`
+	OfferID   int    `json:"offer_id"`
+	Message   string `json:"message"`
+	Read      bool   `json:"read"`
+	CreatedAt string `json:"created_at"`
+}
+
 // createStudent handles POST /student - Creates a new student
 func createStudent(w http.ResponseWriter, r *http.Request) error {
 	var student Student
@@ -473,4 +484,74 @@ func getRecommendedOffers(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return NewResponseWriter(w).JSON(http.StatusOK, recommendedOffers)
+}
+
+// getStudentNotifications handles GET /students/{id}/notifications.
+func getStudentNotifications(w http.ResponseWriter, r *http.Request) error {
+	studentID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || studentID <= 0 {
+		return fmt.Errorf("invalid student id")
+	}
+
+	rows, err := db.Query(
+		"SELECT id, student_id, type, offer_id, message, read, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM notifications WHERE student_id = $1 ORDER BY created_at DESC, id DESC",
+		studentID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	notifications := []Notification{}
+	for rows.Next() {
+		var notification Notification
+		if err := rows.Scan(
+			&notification.ID,
+			&notification.StudentID,
+			&notification.Type,
+			&notification.OfferID,
+			&notification.Message,
+			&notification.Read,
+			&notification.CreatedAt,
+		); err != nil {
+			return fmt.Errorf("failed to scan notification: %w", err)
+		}
+		notifications = append(notifications, notification)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed iterating notifications: %w", err)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, notifications)
+}
+
+// markNotificationAsRead handles PUT /notifications/{id}/read.
+func markNotificationAsRead(w http.ResponseWriter, r *http.Request) error {
+	notificationID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || notificationID <= 0 {
+		return fmt.Errorf("invalid notification id")
+	}
+
+	var notification Notification
+	err = db.QueryRow(
+		"UPDATE notifications SET read = true WHERE id = $1 RETURNING id, student_id, type, offer_id, message, read, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
+		notificationID,
+	).Scan(
+		&notification.ID,
+		&notification.StudentID,
+		&notification.Type,
+		&notification.OfferID,
+		&notification.Message,
+		&notification.Read,
+		&notification.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("notification with id %d not found", notificationID)
+		}
+		return fmt.Errorf("failed to update notification: %w", err)
+	}
+
+	return NewResponseWriter(w).JSON(http.StatusOK, notification)
 }

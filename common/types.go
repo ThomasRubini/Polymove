@@ -30,3 +30,11 @@ type News struct {
 	CreatedAt string   `json:"created_at,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
 }
+
+type OfferCreatedEvent struct {
+	OfferID   int    `json:"offer_id"`
+	Title     string `json:"title"`
+	Domain    string `json:"domain"`
+	City      string `json:"city"`
+	CreatedAt string `json:"created_at"`
+}

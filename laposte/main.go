@@ -51,6 +51,7 @@ func main() {
 	defer rmqConn.Close()
 
 	go consumeStudentRegisteredEvents(rmqChannel)
+	go consumeOfferCreatedEvents(rmqChannel)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/subscribers/{studentId}", getSubscriber).Methods(http.MethodGet)
@@ -161,6 +162,90 @@ func processStudentRegisteredEvent(payload []byte) error {
 	return nil
 }
 
+// consumeOfferCreatedEvents subscribes to offer.created and dispatches matching alerts.
+func consumeOfferCreatedEvents(ch *amqp.Channel) {
+	queueName := "laposte.offer.created"
+	routingKey := common.RoutingKeyOfferCreated
+
+	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
+	if err != nil {
+		log.Printf("Failed to declare queue: %v", err)
+		return
+	}
+
+	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	if err != nil {
+		log.Printf("Failed to bind queue: %v", err)
+		return
+	}
+
+	deliveries, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		log.Printf("Failed to register consumer: %v", err)
+		return
+	}
+
+	log.Printf("Subscribed to routing key %s", routingKey)
+
+	for msg := range deliveries {
+		if err := processOfferCreatedEvent(msg.Body); err != nil {
+			log.Printf("Failed to process offer.created event: %v", err)
+			if nackErr := msg.Nack(false, true); nackErr != nil {
+				log.Printf("Failed to nack message: %v", nackErr)
+			}
+			continue
+		}
+		if ackErr := msg.Ack(false); ackErr != nil {
+			log.Printf("Failed to ack message: %v", ackErr)
+		}
+	}
+}
+
+// processOfferCreatedEvent filters subscribers and sends alerts for matching offers.
+func processOfferCreatedEvent(payload []byte) error {
+	var event common.OfferCreatedEvent
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	if event.Domain == "" || event.City == "" || event.OfferID <= 0 {
+		return fmt.Errorf("invalid offer.created event")
+	}
+
+	subscribersMu.RLock()
+	matchingSubscribers := make([]Subscriber, 0)
+	for _, subscriber := range subscribers {
+		if !subscriber.Enabled {
+			continue
+		}
+		if subscriber.Contact == "" {
+			continue
+		}
+		if subscriber.Domain != event.Domain {
+			continue
+		}
+		matchingSubscribers = append(matchingSubscribers, subscriber)
+	}
+	subscribersMu.RUnlock()
+
+	for _, subscriber := range matchingSubscribers {
+		sendOfferAlert(subscriber, event)
+	}
+
+	return nil
+}
+
+// sendOfferAlert emits an alert log for one subscriber and skips unsupported channels.
+func sendOfferAlert(subscriber Subscriber, event common.OfferCreatedEvent) {
+	switch subscriber.Channel {
+	case "email", "sms":
+		log.Printf("Alert sent via %s to student=%d contact=%s: new offer id=%d title=%q city=%s domain=%s",
+			subscriber.Channel, subscriber.StudentID, subscriber.Contact, event.OfferID, event.Title, event.City, event.Domain)
+	default:
+		log.Printf("Skipping alert for student=%d: unsupported channel=%s", subscriber.StudentID, subscriber.Channel)
+	}
+}
+
 // getSubscriber returns subscriber preferences for a student.
 func getSubscriber(w http.ResponseWriter, r *http.Request) {
 	studentID, err := parseStudentID(mux.Vars(r)["studentId"])
@@ -194,15 +279,18 @@ func updateSubscriber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Channel == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "channel is required"})
+		return
+	}
+
 	subscribersMu.Lock()
 	subscriber := subscribers[studentID]
 	subscriber.StudentID = studentID
 	if req.Domain != "" {
 		subscriber.Domain = req.Domain
 	}
-	if req.Channel != "" {
-		subscriber.Channel = req.Channel
-	}
+	subscriber.Channel = req.Channel
 	subscriber.Contact = req.Contact
 	subscriber.Enabled = req.Enabled
 	subscribers[studentID] = subscriber
