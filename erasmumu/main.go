@@ -68,6 +68,14 @@ func errorHandler(fn func(w http.ResponseWriter, r *http.Request) error) http.Ha
 	}
 }
 
+// loggingMiddleware logs every incoming HTTP request.
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	log.SetOutput(os.Stdout)
 
@@ -77,6 +85,7 @@ func main() {
 	defer rmqConn.Close()
 
 	router := mux.NewRouter()
+	router.Use(loggingMiddleware)
 	router.HandleFunc("/offers", errorHandler(getOffers)).Methods(http.MethodGet)
 	router.HandleFunc("/offers", errorHandler(createOffer)).Methods(http.MethodPost)
 	router.HandleFunc("/offers/{id}", errorHandler(getOfferByID)).Methods(http.MethodGet)

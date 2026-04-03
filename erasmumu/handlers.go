@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -58,6 +59,8 @@ func createOffer(w http.ResponseWriter, r *http.Request) error {
 	if err := publishOfferCreatedEvent(offer); err != nil {
 		return fmt.Errorf("failed to publish offer.created event: %w", err)
 	}
+
+	log.Printf("Created offer id=%d title=%q domain=%s city=%s", offer.ID, offer.Title, offer.Domain, offer.City)
 
 	return NewResponseWriter(w).JSON(http.StatusCreated, offer)
 }

@@ -107,6 +107,8 @@ func processOfferCreatedEvent(payload []byte) error {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
+	log.Printf("Received offer from queue: offer_id=%d domain=%s city=%s", event.OfferID, event.Domain, event.City)
+
 	if event.OfferID <= 0 || event.Domain == "" {
 		return fmt.Errorf("invalid offer.created event")
 	}
