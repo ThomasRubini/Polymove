@@ -72,7 +72,7 @@ func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 
 // consumeStudentRegisteredEvents subscribes to student.registered and creates defaults.
 func consumeStudentRegisteredEvents(ch *amqp.Channel) {
-	queueName := "laposte.student.registered"
+	queueName := common.QueueLaPosteStudentRegister
 	routingKey := common.RoutingKeyStudentRegistered
 
 	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
@@ -81,7 +81,7 @@ func consumeStudentRegisteredEvents(ch *amqp.Channel) {
 		return
 	}
 
-	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	err = ch.QueueBind(queue.Name, routingKey, common.TopicExchange, false, nil)
 	if err != nil {
 		log.Printf("Failed to bind queue: %v", err)
 		return
@@ -142,7 +142,7 @@ func processStudentRegisteredEvent(payload []byte) error {
 
 // consumeOfferCreatedEvents subscribes to offer.created and dispatches matching alerts.
 func consumeOfferCreatedEvents(ch *amqp.Channel) {
-	queueName := "laposte.offer.created"
+	queueName := common.QueueLaPosteOfferCreated
 	routingKey := common.RoutingKeyOfferCreated
 
 	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
@@ -151,7 +151,7 @@ func consumeOfferCreatedEvents(ch *amqp.Channel) {
 		return
 	}
 
-	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	err = ch.QueueBind(queue.Name, routingKey, common.TopicExchange, false, nil)
 	if err != nil {
 		log.Printf("Failed to bind queue: %v", err)
 		return

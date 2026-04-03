@@ -36,7 +36,7 @@ func publishOfferCreatedEvent(offer common.Offer) error {
 	}
 
 	err = rmqChannel.Publish(
-		"amq.topic",
+		common.TopicExchange,
 		common.RoutingKeyOfferCreated,
 		false,
 		false,

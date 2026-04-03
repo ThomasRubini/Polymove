@@ -43,7 +43,7 @@ func publishStudentRegisteredEvent(student Student) error {
 	}
 
 	err = rmqChannel.Publish(
-		"amq.topic",
+		common.TopicExchange,
 		common.RoutingKeyStudentRegistered,
 		false,
 		false,
@@ -62,7 +62,7 @@ func publishStudentRegisteredEvent(student Student) error {
 
 // consumeOfferCreatedEvents subscribes to offer.created and stores notifications for matching students.
 func consumeOfferCreatedEvents(ch *amqp.Channel) {
-	queueName := "polytech.offer.created"
+	queueName := common.QueuePolytechOfferCreated
 	routingKey := common.RoutingKeyOfferCreated
 
 	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
@@ -71,7 +71,7 @@ func consumeOfferCreatedEvents(ch *amqp.Channel) {
 		return
 	}
 
-	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	err = ch.QueueBind(queue.Name, routingKey, common.TopicExchange, false, nil)
 	if err != nil {
 		log.Printf("Failed to bind queue: %v", err)
 		return

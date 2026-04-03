@@ -72,7 +72,7 @@ func main() {
 		}
 
 		err = ch.Publish(
-			"amq.topic",
+			common.TopicExchange,
 			common.RoutingKeyMI8News,
 			false,
 			false,

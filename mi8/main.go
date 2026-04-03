@@ -52,10 +52,11 @@ func initRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 
 // consumeNewsEvents subscribes to mi8.news and stores each event in Redis.
 func consumeNewsEvents(ch *amqp.Channel) {
-	topic := common.RoutingKeyMI8News
+	queueName := common.QueueMI8News
+	routingKey := common.RoutingKeyMI8News
 
 	queue, err := ch.QueueDeclare(
-		topic,
+		queueName,
 		true,
 		false,
 		false,
@@ -69,8 +70,8 @@ func consumeNewsEvents(ch *amqp.Channel) {
 
 	err = ch.QueueBind(
 		queue.Name,
-		topic,
-		"amq.topic",
+		routingKey,
+		common.TopicExchange,
 		false,
 		nil,
 	)
@@ -93,7 +94,7 @@ func consumeNewsEvents(ch *amqp.Channel) {
 		return
 	}
 
-	log.Printf("Subscribed to RabbitMQ topic %s", topic)
+	log.Printf("Subscribed to RabbitMQ topic %s", routingKey)
 
 	for msg := range deliveries {
 		if err := processNewsEvent(ctx, msg.Body); err != nil {
@@ -112,7 +113,7 @@ func consumeNewsEvents(ch *amqp.Channel) {
 
 // consumeOfferCreatedEvents subscribes to offer.created and updates city offer statistics.
 func consumeOfferCreatedEvents(ch *amqp.Channel) {
-	queueName := "mi8.offer.created"
+	queueName := common.QueueMI8OfferCreated
 	routingKey := common.RoutingKeyOfferCreated
 
 	queue, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
@@ -121,7 +122,7 @@ func consumeOfferCreatedEvents(ch *amqp.Channel) {
 		return
 	}
 
-	err = ch.QueueBind(queue.Name, routingKey, "amq.topic", false, nil)
+	err = ch.QueueBind(queue.Name, routingKey, common.TopicExchange, false, nil)
 	if err != nil {
 		log.Printf("Failed to bind queue: %v", err)
 		return
