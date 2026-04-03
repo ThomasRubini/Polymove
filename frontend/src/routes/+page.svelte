@@ -7,10 +7,11 @@
 		{ key: 'qol', label: 'Quality of Life' },
 		{ key: 'culture', label: 'Culture' }
 	];
+	const scoreMax = 2000;
 
 	function scorePercent(value) {
 		if (typeof value !== 'number') return 0;
-		return Math.max(0, Math.min(100, Math.round(value * 10)));
+		return Math.max(0, Math.min(100, Math.round((value / scoreMax) * 100)));
 	}
 
 	function scoreValue(scores, key) {
